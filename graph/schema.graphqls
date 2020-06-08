@@ -14,6 +14,80 @@ type CarrierStats {
     orders: Int!
     ranking: Float!
 }
+type Location  {
+	latitude:  String
+	longitude: String
+	address:   String
+    name: String
+}
+
+type Store {
+    id: ID!
+    public_id: String!
+    name: String!
+    phone: String!
+    location: Location
+}
+type OrderDetail {
+    amount: Float
+    price: Float
+    description: String
+}
+type Experience {
+    score: Int!
+    date: String!
+    description: String!
+}
+type Order {
+    id: ID!
+    public_id:String!
+    carrier_public_id: String!
+    store_public_id: String!
+    profile_public_id: String
+    state: Int!
+    price: Float!
+    date: String!
+    reference: String!
+    experience: Experience
+    delivery_date: String!
+    departure_date: String!
+    client_phone: String!
+    client_name: String!
+    exit_location: Location
+    arrival_location: Location
+    detail: [OrderDetail]
+    carrier: Carrier
+}
+
+
+
+input FilterOptions{
+    limit:Int!
+    public_id:String
+    state:Int
+    state1:Int
+    state2:Int
+    carrier_public_id:String
+    search:String
+}
+
+input NewOrder {
+	description: String!
+    public_id:String!
+    reference:String!
+    price: Float!
+    client_phone: String!
+    client_name: String!
+    exit_location: AddLocation
+    arrival_location: AddLocation
+}
+
+input UpdateOrderInput {
+    carrier_public_id:String
+    state:Int
+    score: Int
+    score_description: String
+}
 input NewCarrier {
   public_id: String!
   store_public_id: String!
@@ -34,13 +108,35 @@ input UpdateCarrier {
   message_token: String
   phone: String
 }
+input AddLocation {
+	latitude:String
+	longitude:String
+  address:String
+  name:String
+}
+
+input NewStore {
+	public_id: String!
+    name: String!
+    phone: String!
+    location: AddLocation
+}
 type Query {
     carrier(public_id:String!): Carrier!
     carriers(limit:Int,search:String): [Carrier]!
+    carriers2(limit:Int,search:String): [Carrier]!
+    carriers3(limit:Int,search:String): [Carrier]!
     login(username:String!,password:String!): Carrier!
     getCarrierStats(carrier_public_id:String!): CarrierStats!
+    stores(limit: Int, search:String): [Store]!
+    orders(input:FilterOptions!): [Order]!
+    order(public_id:String!): Order!
 }
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     updateCarrier(public_id: String!,input:UpdateCarrier): Carrier!
+    createStore(input: NewStore!): Store!
+    deleteStore(public_id: String!): Store!
+    createOrder(input: NewOrder!): Order!
+    updateOrder(public_id:String!,input: UpdateOrderInput!): Order!
 }
