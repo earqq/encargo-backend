@@ -1,0 +1,46 @@
+type Carrier {
+    id: ID!
+    public_id: String!
+    store_public_id: String!
+    name: String!
+    state_delivery: Int!
+    username: String!
+    password: String!
+    current_order_id: String
+    message_token: String!
+    phone: String!
+}
+type CarrierStats {
+    orders: Int!
+    ranking: Float!
+}
+input NewCarrier {
+  public_id: String!
+  store_public_id: String!
+  name: String!
+  birthdate: String!
+  username: String!
+  password: String!
+  message_token: String
+  phone: String!
+}
+input UpdateCarrier {
+  name: String
+  birthdate: String
+  state_delivery: Int
+  state : Boolean
+  username: String
+  password: String
+  message_token: String
+  phone: String
+}
+type Query {
+    carrier(public_id:String!): Carrier!
+    carriers(limit:Int,search:String): [Carrier]!
+    login(username:String!,password:String!): Carrier!
+    getCarrierStats(carrier_public_id:String!): CarrierStats!
+}
+type Mutation {
+    createCarrier(input: NewCarrier!): Carrier!
+    updateCarrier(public_id: String!,input:UpdateCarrier): Carrier!
+}
