@@ -25,14 +25,12 @@ type FilterOptions struct {
 }
 
 type NewCarrier struct {
-	PublicID      string  `json:"public_id"`
-	StorePublicID string  `json:"store_public_id"`
-	Name          string  `json:"name"`
-	Birthdate     string  `json:"birthdate"`
-	Username      string  `json:"username"`
-	Password      string  `json:"password"`
-	MessageToken  *string `json:"message_token"`
-	Phone         string  `json:"phone"`
+	StoreID      string  `json:"store_id"`
+	Name         string  `json:"name"`
+	Username     string  `json:"username"`
+	Password     string  `json:"password"`
+	MessageToken *string `json:"message_token"`
+	Phone        string  `json:"phone"`
 }
 
 type NewOrder struct {
@@ -55,7 +53,6 @@ type NewStore struct {
 
 type UpdateCarrier struct {
 	Name          *string `json:"name"`
-	Birthdate     *string `json:"birthdate"`
 	StateDelivery *int    `json:"state_delivery"`
 	State         *bool   `json:"state"`
 	Username      *string `json:"username"`
