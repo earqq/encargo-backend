@@ -6,7 +6,7 @@ type AddLocation struct {
 	Latitude  *string `json:"latitude"`
 	Longitude *string `json:"longitude"`
 	Address   *string `json:"address"`
-	Name      *string `json:"name"`
+	Reference *string `json:"reference"`
 }
 
 type CarrierStats struct {
@@ -45,7 +45,6 @@ type NewOrder struct {
 }
 
 type NewStore struct {
-	PublicID string       `json:"public_id"`
 	Name     string       `json:"name"`
 	Phone    string       `json:"phone"`
 	Location *AddLocation `json:"location"`

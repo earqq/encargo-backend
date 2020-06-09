@@ -97,11 +97,32 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id string, input *
 }
 
 func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error) {
-	panic(fmt.Errorf("not implemented"))
+	var stores model.Store
+	storesBD := db.GetCollection("stores")
+	id := bson.NewObjectId()
+	storesBD.Insert(bson.M{
+		"_id":      bson.ObjectId(id).Hex(),
+		"name":     input.Name,
+		"phone":    input.Phone,
+		"location": input.Location,
+	})
+	if err := storesBD.Find(bson.M{"_id": bson.ObjectId(id).Hex()}).One(&stores); err != nil {
+		return &model.Store{}, err
+	}
+
+	return &stores, nil
 }
 
-func (r *mutationResolver) DeleteStore(ctx context.Context, publicID string) (*model.Store, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *mutationResolver) DeleteStore(ctx context.Context, id string) (*model.Store, error) {
+	var stores model.Store
+	storesBD := db.GetCollection("stores")
+	if err := storesBD.Find(bson.M{"_id": id}).One(&stores); err != nil {
+		return &model.Store{}, errors.New("no existe este negocio")
+	}
+	if err := storesBD.Remove(bson.M{"_id": id}); err != nil {
+		return &model.Store{}, errors.New("error al borrar negocio")
+	}
+	return &stores, nil
 }
 
 func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error) {
@@ -109,10 +130,6 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 }
 
 func (r *mutationResolver) UpdateOrder(ctx context.Context, publicID string, input model.UpdateOrderInput) (*model.Order, error) {
-	panic(fmt.Errorf("not implemented"))
-}
-
-func (r *orderResolver) PublicID(ctx context.Context, obj *model.Order) (string, error) {
 	panic(fmt.Errorf("not implemented"))
 }
 
@@ -162,7 +179,19 @@ func (r *queryResolver) GetCarrierStats(ctx context.Context, carrierPublicID str
 }
 
 func (r *queryResolver) Stores(ctx context.Context, limit *int, search *string) ([]*model.Store, error) {
-	panic(fmt.Errorf("not implemented"))
+	var stores []*model.Store
+	var fields = bson.M{}
+	storesBD := db.GetCollection("stores")
+	if search != nil {
+		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
+	}
+	if limit != nil {
+		storesBD.Find(fields).Limit(*limit).Sort("-updated_at").All(&stores)
+
+	} else {
+		storesBD.Find(fields).Sort("-updated_at").All(&stores)
+	}
+	return stores, nil
 }
 
 func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) ([]*model.Order, error) {
@@ -204,12 +233,6 @@ type storeResolver struct{ *Resolver }
 //  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *carrierResolver) ID(ctx context.Context, obj *model.Carrier) (*int, error) {
-	panic(fmt.Errorf("not implemented"))
-}
-func (r *orderResolver) ID(ctx context.Context, obj *model.Order) (int, error) {
-	panic(fmt.Errorf("not implemented"))
-}
-func (r *storeResolver) ID(ctx context.Context, obj *model.Store) (int, error) {
+func (r *orderResolver) PublicID(ctx context.Context, obj *model.Order) (string, error) {
 	panic(fmt.Errorf("not implemented"))
 }

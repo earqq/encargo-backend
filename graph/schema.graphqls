@@ -22,7 +22,6 @@ type Location  {
 
 type Store {
     id: ID!
-    public_id: String!
     name: String!
     phone: String!
     location: Location
@@ -39,7 +38,6 @@ type Experience {
 }
 type Order {
     id: ID!
-    public_id:String!
     state: Int!
     price: Float!
     date: String!
@@ -106,11 +104,10 @@ input AddLocation {
   latitude:String
   longitude:String
   address:String
-  name:String
+  reference:String
 }
 
 input NewStore {
-	public_id: String!
     name: String!
     phone: String!
     location: AddLocation
@@ -128,7 +125,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     updateCarrier(id: String!,input:UpdateCarrier): Carrier!
     createStore(input: NewStore!): Store!
-    deleteStore(public_id: String!): Store!
+    deleteStore(id: String!): Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(public_id:String!,input: UpdateOrderInput!): Order!
 }

@@ -80,7 +80,7 @@ type ComplexityRoot struct {
 		CreateCarrier func(childComplexity int, input model.NewCarrier) int
 		CreateOrder   func(childComplexity int, input model.NewOrder) int
 		CreateStore   func(childComplexity int, input model.NewStore) int
-		DeleteStore   func(childComplexity int, publicID string) int
+		DeleteStore   func(childComplexity int, id string) int
 		UpdateCarrier func(childComplexity int, id string, input *model.UpdateCarrier) int
 		UpdateOrder   func(childComplexity int, publicID string, input model.UpdateOrderInput) int
 	}
@@ -98,7 +98,6 @@ type ComplexityRoot struct {
 		Experience      func(childComplexity int) int
 		ID              func(childComplexity int) int
 		Price           func(childComplexity int) int
-		PublicID        func(childComplexity int) int
 		Reference       func(childComplexity int) int
 		State           func(childComplexity int) int
 		Store           func(childComplexity int) int
@@ -125,7 +124,6 @@ type ComplexityRoot struct {
 		Location func(childComplexity int) int
 		Name     func(childComplexity int) int
 		Phone    func(childComplexity int) int
-		PublicID func(childComplexity int) int
 	}
 }
 
@@ -136,13 +134,11 @@ type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
 	UpdateCarrier(ctx context.Context, id string, input *model.UpdateCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
-	DeleteStore(ctx context.Context, publicID string) (*model.Store, error)
+	DeleteStore(ctx context.Context, id string) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
 	UpdateOrder(ctx context.Context, publicID string, input model.UpdateOrderInput) (*model.Order, error)
 }
 type OrderResolver interface {
-	PublicID(ctx context.Context, obj *model.Order) (string, error)
-
 	Detail(ctx context.Context, obj *model.Order) ([]*model.OrderDetail, error)
 	Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error)
 	Store(ctx context.Context, obj *model.Order) (*model.Store, error)
@@ -347,7 +343,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.DeleteStore(childComplexity, args["public_id"].(string)), true
+		return e.complexity.Mutation.DeleteStore(childComplexity, args["id"].(string)), true
 
 	case "Mutation.updateCarrier":
 		if e.complexity.Mutation.UpdateCarrier == nil {
@@ -456,13 +452,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Order.Price(childComplexity), true
-
-	case "Order.public_id":
-		if e.complexity.Order.PublicID == nil {
-			break
-		}
-
-		return e.complexity.Order.PublicID(childComplexity), true
 
 	case "Order.reference":
 		if e.complexity.Order.Reference == nil {
@@ -618,13 +607,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Store.Phone(childComplexity), true
 
-	case "Store.public_id":
-		if e.complexity.Store.PublicID == nil {
-			break
-		}
-
-		return e.complexity.Store.PublicID(childComplexity), true
-
 	}
 	return 0, false
 }
@@ -713,7 +695,6 @@ type Location  {
 
 type Store {
     id: ID!
-    public_id: String!
     name: String!
     phone: String!
     location: Location
@@ -730,7 +711,6 @@ type Experience {
 }
 type Order {
     id: ID!
-    public_id:String!
     state: Int!
     price: Float!
     date: String!
@@ -797,11 +777,10 @@ input AddLocation {
   latitude:String
   longitude:String
   address:String
-  name:String
+  reference:String
 }
 
 input NewStore {
-	public_id: String!
     name: String!
     phone: String!
     location: AddLocation
@@ -819,7 +798,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     updateCarrier(id: String!,input:UpdateCarrier): Carrier!
     createStore(input: NewStore!): Store!
-    deleteStore(public_id: String!): Store!
+    deleteStore(id: String!): Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(public_id:String!,input: UpdateOrderInput!): Order!
 }`, BuiltIn: false},
@@ -876,13 +855,13 @@ func (ec *executionContext) field_Mutation_deleteStore_args(ctx context.Context,
 	var err error
 	args := map[string]interface{}{}
 	var arg0 string
-	if tmp, ok := rawArgs["public_id"]; ok {
+	if tmp, ok := rawArgs["id"]; ok {
 		arg0, err = ec.unmarshalNString2string(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["public_id"] = arg0
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -1843,7 +1822,7 @@ func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field gra
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteStore(rctx, args["public_id"].(string))
+		return ec.resolvers.Mutation().DeleteStore(rctx, args["id"].(string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1974,40 +1953,6 @@ func (ec *executionContext) _Order_id(ctx context.Context, field graphql.Collect
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Order_public_id(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Order",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Order().PublicID(rctx, obj)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Order_state(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
@@ -2949,40 +2894,6 @@ func (ec *executionContext) _Store_id(ctx context.Context, field graphql.Collect
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNID2string(ctx, field.Selections, res)
-}
-
-func (ec *executionContext) _Store_public_id(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Store",
-		Field:    field,
-		Args:     nil,
-		IsMethod: false,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return obj.PublicID, nil
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(string)
-	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Store_name(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
@@ -4163,9 +4074,9 @@ func (ec *executionContext) unmarshalInputAddLocation(ctx context.Context, obj i
 			if err != nil {
 				return it, err
 			}
-		case "name":
+		case "reference":
 			var err error
-			it.Name, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			it.Reference, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4343,12 +4254,6 @@ func (ec *executionContext) unmarshalInputNewStore(ctx context.Context, obj inte
 
 	for k, v := range asMap {
 		switch k {
-		case "public_id":
-			var err error
-			it.PublicID, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		case "name":
 			var err error
 			it.Name, err = ec.unmarshalNString2string(ctx, v)
@@ -4712,20 +4617,6 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
-		case "public_id":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Order_public_id(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
-				return res
-			})
 		case "state":
 			out.Values[i] = ec._Order_state(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4985,11 +4876,6 @@ func (ec *executionContext) _Store(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = graphql.MarshalString("Store")
 		case "id":
 			out.Values[i] = ec._Store_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				atomic.AddUint32(&invalids, 1)
-			}
-		case "public_id":
-			out.Values[i] = ec._Store_public_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
