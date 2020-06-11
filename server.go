@@ -12,7 +12,7 @@ import (
 	"github.com/earqq/encargo-backend/graph/generated"
 )
 
-const defaultPort = "8080"
+const defaultPort = "8090"
 
 func main() {
 	port := os.Getenv("PORT")
