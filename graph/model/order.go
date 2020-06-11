@@ -1,7 +1,7 @@
 package model
 
 type Order struct {
-	ID              string `json:"id"`
+	ID              string `json:"_id" bson:"_id"`
 	ProfileID       string `json:"profile_id" bson:"profile_id"`
 	CarrierID       string `json:"carrier_id" bson:"carrier_id"`
 	StoreID         string `json:"store_id" bson:"store_id"`
@@ -15,7 +15,7 @@ type Order struct {
 	Reference       string `json:"reference"`
 	ClientPhone     string `json:"client_phone" bson:"client_phone"`
 	ClientName      string `json:"client_name" bson:"client_name"`
-	Detail          OrderDetail
+	Detail          []OrderDetail
 	Experience      Experience
 	ArrivalLocation Location `json:"arrival_location" bson:"arrival_location"`
 	ExitLocation    Location `json:"exit_location" bson:"exit_location"`

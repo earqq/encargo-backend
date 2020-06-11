@@ -15,13 +15,13 @@ type CarrierStats struct {
 }
 
 type FilterOptions struct {
-	Limit           int     `json:"limit"`
-	PublicID        *string `json:"public_id"`
-	State           *int    `json:"state"`
-	State1          *int    `json:"state1"`
-	State2          *int    `json:"state2"`
-	CarrierPublicID *string `json:"carrier_public_id"`
-	Search          *string `json:"search"`
+	Limit     int     `json:"limit"`
+	ID        *string `json:"id"`
+	State     *int    `json:"state"`
+	State1    *int    `json:"state1"`
+	State2    *int    `json:"state2"`
+	CarrierID *string `json:"carrier_id"`
+	Search    *string `json:"search"`
 }
 
 type NewCarrier struct {
@@ -34,20 +34,27 @@ type NewCarrier struct {
 }
 
 type NewOrder struct {
-	Description     string       `json:"description"`
-	PublicID        string       `json:"public_id"`
-	Reference       string       `json:"reference"`
-	Price           float64      `json:"price"`
-	ClientPhone     string       `json:"client_phone"`
-	ClientName      string       `json:"client_name"`
-	ExitLocation    *AddLocation `json:"exit_location"`
-	ArrivalLocation *AddLocation `json:"arrival_location"`
+	StoreID         string            `json:"store_id"`
+	Price           float64           `json:"price"`
+	ClientPhone     string            `json:"client_phone"`
+	ClientName      string            `json:"client_name"`
+	ArrivalLocation *AddLocation      `json:"arrival_location"`
+	Detail          []*NewOrderDetail `json:"detail"`
+}
+
+type NewOrderDetail struct {
+	Amount      *float64 `json:"amount"`
+	Price       *float64 `json:"price"`
+	Description *string  `json:"description"`
 }
 
 type NewStore struct {
-	Name     string       `json:"name"`
-	Phone    string       `json:"phone"`
-	Location *AddLocation `json:"location"`
+	Name       string       `json:"name"`
+	Phone      string       `json:"phone"`
+	Username   *string      `json:"username"`
+	Password   *string      `json:"password"`
+	FirebaseID *string      `json:"firebaseID"`
+	Location   *AddLocation `json:"location"`
 }
 
 type UpdateCarrier struct {
@@ -60,8 +67,8 @@ type UpdateCarrier struct {
 	Phone         *string `json:"phone"`
 }
 
-type UpdateOrderInput struct {
-	CarrierPublicID  *string `json:"carrier_public_id"`
+type UpdateOrder struct {
+	CarrierID        *string `json:"carrier_id"`
 	State            *int    `json:"state"`
 	Score            *int    `json:"score"`
 	ScoreDescription *string `json:"score_description"`
