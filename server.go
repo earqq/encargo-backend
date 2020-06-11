@@ -11,7 +11,7 @@ import (
 	"github.com/earqq/encargo-backend/graph/generated"
 )
 
-const defaultPort = "8090"
+const defaultPort = "8094"
 
 func main() {
 	port := defaultPort
