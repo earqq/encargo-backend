@@ -159,12 +159,12 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 	t := time.Now().In(loc)
 	if input.StoreRuc != nil {
 		if err := storeDB.Find(bson.M{"ruc": input.StoreRuc}).One(&store); err != nil {
-			return &model.Order{}, errors.New("No existe tienda con RUC")
+			return &model.Order{}, errors.New("No existe tienda con ese RUC")
 		}
 	}
 	if input.StoreID != nil {
 		if err := storeDB.Find(bson.M{"_id": input.StoreID}).One(&store); err != nil {
-			return &model.Order{}, errors.New("No existe tienda con ID")
+			return &model.Order{}, errors.New("No existe tienda con ese ID")
 		}
 	}
 	ExitLocation.Latitude = store.Location.Latitude
