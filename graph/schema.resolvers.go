@@ -6,9 +6,9 @@ package graph
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
+	"github.com/earqq/encargo-backend/auth"
 	"github.com/earqq/encargo-backend/db"
 	"github.com/earqq/encargo-backend/graph/generated"
 	"github.com/earqq/encargo-backend/graph/model"
@@ -17,40 +17,87 @@ import (
 
 func (r *mutationResolver) CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error) {
 	carriers := db.GetCollection("carriers")
-	var user model.Carrier
+	var carrier model.Carrier
 	var fields = bson.M{}
 	fields["$or"] = []bson.M{
 		bson.M{"username": input.Username},
 		bson.M{"phone": input.Phone}}
-	if err := carriers.Find(fields).One(&user); err == nil {
+	if err := carriers.Find(fields).One(&carrier); err == nil {
 		return &model.Carrier{}, errors.New("Nombre de usuario o Celular ya existe")
 	}
+	password, _ := HashPassword((input.Password))
+	//Generar token
+	var Token = auth.GenerateJWT(input.Username, "carrier")
 	id := bson.NewObjectId()
 	carriers.Insert(bson.M{
 		"_id":              bson.ObjectId(id).Hex(),
 		"name":             input.Name,
 		"state_delivery":   0,
 		"username":         input.Username,
+		"token":            Token,
 		"store_id":         input.StoreID,
-		"password":         input.Password,
+		"password":         password,
+		"global":           input.Global,
 		"current_order_id": 0,
 		"message_token":    input.MessageToken,
 		"phone":            input.Phone,
 		"updated_at":       time.Now().Local(),
 	})
 
-	err := carriers.Find(bson.M{"username": input.Username}).One(&user)
+	err := carriers.Find(bson.M{"username": input.Username}).One(&carrier)
 	if err != nil {
 		return &model.Carrier{}, err
 	}
 
-	return &user, nil
+	return &carrier, nil
 }
 
-func (r *mutationResolver) UpdateCarrier(ctx context.Context, id string, input model.UpdateCarrier) (*model.Carrier, error) {
-	var user model.Carrier
+func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error) {
+	var stores model.Store
+	storesDB := db.GetCollection("stores")
+	var fields = bson.M{}
+	fields["$or"] = []bson.M{
+		bson.M{"username": input.Username},
+		bson.M{"phone": input.Phone}}
+	if err := storesDB.Find(fields).One(&stores); err == nil {
+		return &model.Store{}, errors.New("Nombre de usuario o Celular ya existe")
+	}
+	if input.Ruc != nil {
+		var fields = bson.M{}
+		fields["ruc"] = input.Ruc
+		if err := storesDB.Find(fields).One(&stores); err == nil {
+			return &model.Store{}, errors.New("Ruc ya existe")
+		}
+	}
+	password, _ := HashPassword((input.Password))
+	//Generar token
+	var Token = auth.GenerateJWT(input.Username, "store")
+	id := bson.NewObjectId()
+	storesDB.Insert(bson.M{
+		"_id":         bson.ObjectId(id).Hex(),
+		"name":        input.Name,
+		"phone":       input.Phone,
+		"username":    input.Username,
+		"ruc":         input.Ruc,
+		"token":       Token,
+		"password":    password,
+		"firebase_id": input.FirebaseID,
+		"location":    input.Location,
+	})
+	if err := storesDB.Find(bson.M{"username": input.Username}).One(&stores); err != nil {
+		return &model.Store{}, err
+	}
+	return &stores, nil
+}
+
+func (r *mutationResolver) UpdateCarrier(ctx context.Context, input model.UpdateCarrier) (*model.Carrier, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
+	}
+	var carrier model.Carrier
 	carriers := db.GetCollection("carriers")
-	if err := carriers.Find(bson.M{"_id": id}).One(&user); err != nil {
+	if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
 		return &model.Carrier{}, err
 	}
 
@@ -62,72 +109,46 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id string, input m
 		update = true
 
 	}
-	if input.Username != nil && *input.Username != "" {
-		update = true
-		fields["username"] = input.Username
-	}
 	if input.Name != nil && *input.Name != "" {
 		update = true
 		fields["name"] = input.Name
 	}
 	if input.Password != nil && *input.Password != "" {
 		update = true
-		fields["password"] = input.Password
+		password, _ := HashPassword(*input.Password)
+		fields["password"] = password
 	}
 	if input.State != nil {
 		update = true
 		fields["state"] = input.State
-	}
-	if input.Phone != nil && *input.Phone != "" {
-		update = true
-		fields["phone"] = input.Phone
 	}
 
 	if !update {
 		return &model.Carrier{}, errors.New("no fields present for updating data")
 	}
 
-	carriers.Update(bson.M{"_id": id}, bson.M{"$set": fields})
-	carriers.Find(bson.M{"_id": id}).One(&user)
-
-	return &user, nil
+	carriers.Update(bson.M{"username": userContext.Username}, bson.M{"$set": fields})
+	carriers.Find(bson.M{"username": userContext.Username}).One(&carrier)
+	return &carrier, nil
 }
 
-func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error) {
-	var stores model.Store
+func (r *mutationResolver) DeleteStore(ctx context.Context) (*model.Store, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Store{}, errors.New("Acceso denegado")
+	}
+	var store model.Store
 	storesBD := db.GetCollection("stores")
-	id := bson.NewObjectId()
-	storesBD.Insert(bson.M{
-		"_id":         bson.ObjectId(id).Hex(),
-		"name":        input.Name,
-		"phone":       input.Phone,
-		"username":    input.Username,
-		"password":    input.Password,
-		"firebase_id": input.FirebaseID,
-		"location":    input.Location,
-	})
-	if err := storesBD.Find(bson.M{"_id": bson.ObjectId(id).Hex()}).One(&stores); err != nil {
-		return &model.Store{}, err
+	if err := storesBD.Find(bson.M{"username": userContext.Username}).One(&store); err != nil {
+		return &model.Store{}, errors.New("no existe este tienda")
 	}
-
-	return &stores, nil
-}
-
-func (r *mutationResolver) DeleteStore(ctx context.Context, id string) (*model.Store, error) {
-	var stores model.Store
-	storesBD := db.GetCollection("stores")
-	if err := storesBD.Find(bson.M{"_id": id}).One(&stores); err != nil {
-		return &model.Store{}, errors.New("no existe este negocio")
+	if err := storesBD.Remove(bson.M{"username": userContext.Username}); err != nil {
+		return &model.Store{}, errors.New("error al borrar tienda")
 	}
-	if err := storesBD.Remove(bson.M{"_id": id}); err != nil {
-		return &model.Store{}, errors.New("error al borrar negocio")
-	}
-	return &stores, nil
+	return &store, nil
 }
 
 func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error) {
-	fmt.Println("store")
-	fmt.Println(input.StoreID)
 	var order model.Order
 	var ordersBD = db.GetCollection("orders")
 	var store model.Store
@@ -136,8 +157,15 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 	id := bson.NewObjectId()
 	loc := time.FixedZone("UTC-5", -5*60*60)
 	t := time.Now().In(loc)
-	if err := storeDB.Find(bson.M{"_id": input.StoreID}).One(&store); err != nil {
-		return &model.Order{}, errors.New("No existe tienda")
+	if input.StoreRuc != nil {
+		if err := storeDB.Find(bson.M{"ruc": input.StoreRuc}).One(&store); err != nil {
+			return &model.Order{}, errors.New("No existe tienda con RUC")
+		}
+	}
+	if input.StoreID != nil {
+		if err := storeDB.Find(bson.M{"_id": input.StoreID}).One(&store); err != nil {
+			return &model.Order{}, errors.New("No existe tienda con ID")
+		}
 	}
 	ExitLocation.Latitude = store.Location.Latitude
 	ExitLocation.Longitude = store.Location.Longitude
@@ -146,7 +174,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 
 	ordersBD.Insert(bson.M{
 		"_id":              bson.ObjectId(id).Hex(),
-		"store_id":         input.StoreID,
+		"store_id":         store.ID,
 		"price":            input.Price,
 		"date":             t.Format("2006-01-02T15:04:0"),
 		"state":            0,
@@ -182,16 +210,15 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		}
 		fields["carrier_id"] = *input.CarrierID
 		update = true
-		ordersDB.Update(bson.M{"id": id}, bson.M{"$set": fields})
-		ordersDB.Find(bson.M{"id": id}).One(&order)
+		ordersDB.Update(bson.M{"_id": id}, bson.M{"$set": fields})
+		ordersDB.Find(bson.M{"_id": id}).One(&order)
 	}
 	if input.State != nil {
 		fields["state"] = *input.State
 		update = true
-		var carrier model.Carrier
-		if err := carriersDB.Find(bson.M{"_id": input.CarrierID}).One(&carrier); err != nil {
-			return &model.Order{}, errors.New("No se encuentra carrier con ese ID")
-		}
+
+		var carrierFields = bson.M{}
+		carrierFields["state_delivery"] = *input.State
 		if *input.State == 0 {
 			fields["carrier_id"] = ""
 		}
@@ -200,6 +227,19 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		}
 		if *input.State == 3 {
 			fields["delivery_date"] = t.Format("2006-01-02T15:04:05")
+			carrierFields["state_delivery"] = "0"
+		}
+		if order.CarrierID != "" {
+			carriersDB.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
+			var carriers []*model.Carrier
+			if err := carriersDB.Find(bson.M{"global": 1}).All(&carriers); err != nil {
+				return &model.Order{}, errors.New("No hay carriers")
+			}
+			r.Lock()
+			for _, observer := range Observers {
+				observer <- carriers
+			}
+			r.Unlock()
 		}
 	}
 	if input.Score != nil {
@@ -226,7 +266,7 @@ func (r *orderResolver) Carrier(ctx context.Context, obj *model.Order) (*model.C
 	var carrier model.Carrier
 	var carriersDB = db.GetCollection("carriers")
 	if err := carriersDB.Find(bson.M{"_id": obj.CarrierID}).One(&carrier); err != nil {
-		return &model.Carrier{}, nil
+		return &model.Carrier{}, errors.New("Carrier relacionado al order no existe")
 	}
 	return &carrier, nil
 }
@@ -240,90 +280,77 @@ func (r *orderResolver) Store(ctx context.Context, obj *model.Order) (*model.Sto
 	return &store, nil
 }
 
-func (r *queryResolver) Carrier(ctx context.Context, id string) (*model.Carrier, error) {
-	var user model.Carrier
+func (r *queryResolver) Carrier(ctx context.Context) (*model.Carrier, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
+	}
+	var carrier model.Carrier
 	carriersDB := db.GetCollection("carriers")
-	if err := carriersDB.Find(bson.M{"_id": id}).One(&user); err != nil {
+	if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
 		return &model.Carrier{}, err
 	}
-	return &user, nil
+	return &carrier, nil
 }
 
-func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, storeID string) ([]*model.Carrier, error) {
+func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *int) ([]*model.Carrier, error) {
+	userContext := auth.ForContext(ctx)
+
 	var carriers []*model.Carrier
 	var fields = bson.M{}
-	fields["store_id"] = storeID
+	if search != nil {
+		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
+	}
+	if global != nil {
+		fields["global"] = global
+	}
+	if userContext != nil && userContext.UserType == "store" {
+		fields["store_id"] = userContext.ID
+	}
 	carriersDB := db.GetCollection("carriers")
 	if limit != nil {
-		carriersDB.Find(fields).Limit(*limit).Sort("-updated_at").All(&carriers)
-
+		carriersDB.Find(fields).Select(bson.M{"token": 0}).Limit(*limit).Sort("-updated_at").All(&carriers)
 	} else {
-		carriersDB.Find(fields).Sort("-updated_at").All(&carriers)
+		carriersDB.Find(fields).Select(bson.M{"token": 0}).Sort("-updated_at").All(&carriers)
 	}
 
 	return carriers, nil
 }
 
 func (r *queryResolver) LoginCarrier(ctx context.Context, username string, password string) (*model.Carrier, error) {
-	var user model.Carrier
+	var carrier model.Carrier
 	var carrierDB = db.GetCollection("carriers")
-	if err := carrierDB.Find(bson.M{"username": username, "password": password}).One(&user); err != nil {
+	if err := carrierDB.Find(bson.M{"username": username}).One(&carrier); err != nil {
 		return &model.Carrier{}, err
 	}
-
-	return &user, nil
+	match := CheckPasswordHash(password, carrier.Password)
+	if !match {
+		return &model.Carrier{}, errors.New("Clave incorrecta")
+	}
+	return &carrier, nil
 }
 
 func (r *queryResolver) LoginStore(ctx context.Context, username string, password string) (*model.Store, error) {
-	var user model.Store
+	var store model.Store
 	var storeDB = db.GetCollection("stores")
-	if err := storeDB.Find(bson.M{"username": username, "password": password}).One(&user); err != nil {
+	if err := storeDB.Find(bson.M{"username": username}).One(&store); err != nil {
 		return &model.Store{}, err
 	}
-
-	return &user, nil
+	match := CheckPasswordHash(password, store.Password)
+	if !match {
+		return &model.Store{}, errors.New("Clave incorrecta")
+	}
+	return &store, nil
 }
 
-func (r *queryResolver) GetCarrierStats(ctx context.Context, carrierID string) (*model.CarrierStats, error) {
-	var carrier model.Carrier
-	var carrierDB = db.GetCollection("carriers")
-	var ordersDB = db.GetCollection("orders")
-	if err := carrierDB.Find(bson.M{"public_id": carrierID}).One(&carrier); err != nil {
-		return &model.CarrierStats{}, errors.New("No existe carrier ")
+func (r *queryResolver) Store(ctx context.Context) (*model.Store, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Store{}, errors.New("Acceso denegado")
 	}
-	var carrierStats *model.CarrierStats
-	var ordersCompleteBD []model.Order
-	if err := ordersDB.Find(
-		bson.M{"carrier_id": carrierID,
-			"state": 3}).All(&ordersCompleteBD); err != nil {
-		return &model.CarrierStats{}, err
-	}
-	carrierStats.Orders = len(ordersCompleteBD)
-	var orders []model.Order
-	if err := ordersDB.Find(
-		bson.M{"carrier_id": carrierID,
-			"experience.date": bson.M{"$ne": nil}}).All(&orders); err != nil {
-		return &model.CarrierStats{}, err
-	}
-
-	ordersComplete := len(orders)
-	if ordersComplete == 0 {
-		ordersComplete = 1
-	}
-	ranking := 0.00
-	for i := len(orders) - 1; i >= 0; i-- {
-		ranking += float64(orders[i].Experience.Score)
-	}
-	average := ranking / float64(ordersComplete)
-
-	carrierStats.Ranking = average
-	return carrierStats, nil
-}
-
-func (r *queryResolver) Store(ctx context.Context, id string) (*model.Store, error) {
 	var store model.Store
 	storeDB := db.GetCollection("stores")
-	if err := storeDB.Find(bson.M{"_id": id}).One(&store); err != nil {
+	if err := storeDB.Find(bson.M{"username": userContext.Username}).One(&store); err != nil {
 		return &model.Store{}, err
 	}
 	return &store, nil
@@ -337,45 +364,55 @@ func (r *queryResolver) Stores(ctx context.Context, limit *int, search *string) 
 		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
 	}
 	if limit != nil {
-		storesBD.Find(fields).Limit(*limit).Sort("-updated_at").All(&stores)
+		storesBD.Find(fields).Limit(*limit).Select(bson.M{"token": 0}).Sort("-updated_at").All(&stores)
 
 	} else {
-		storesBD.Find(fields).Sort("-updated_at").All(&stores)
+		storesBD.Find(fields).Select(bson.M{"token": 0}).Sort("-updated_at").All(&stores)
 	}
 	return stores, nil
 }
 
-func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions, storeID string) ([]*model.Order, error) {
-	var orders []*model.Order
-	var fields = bson.M{}
-	var orArray = []bson.M{}
+func (r *queryResolver) GetCarrierStats(ctx context.Context) (*model.CarrierStats, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.CarrierStats{}, errors.New("Acceso denegado")
+	}
+	var carrier model.Carrier
+	var carrierDB = db.GetCollection("carriers")
 	var ordersDB = db.GetCollection("orders")
-	fields["store_id"] = storeID
-	if input.ID != nil && *input.ID != "" {
-		fields["_id"] = input.ID
+	if err := carrierDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+		return &model.CarrierStats{}, errors.New("No existe carrier ")
 	}
-	if input.State != nil {
-		fields["state"] = input.State
+	//Obtener ordenes completada por repartidor
+	var ordersCompleteBD []model.Order
+	if err := ordersDB.Find(
+		bson.M{"carrier_id": carrier.ID,
+			"state": 3}).All(&ordersCompleteBD); err != nil {
+		return &model.CarrierStats{}, errors.New("error aqui")
 	}
-	if input.State1 != nil {
-		orArray = append(orArray, bson.M{"state": input.State1})
-		orArray = append(orArray, bson.M{"state": input.State2})
+	//OBtener pedidos entregados para sacar promedio de score
+	var orders []model.Order
+	if err := ordersDB.Find(
+		bson.M{"carrier_id": carrier.ID,
+			"experience.date": bson.M{"$ne": nil}}).All(&orders); err != nil {
+		return &model.CarrierStats{}, errors.New("error aca")
 	}
-	if input.Search != nil {
-		orArray = append(orArray, bson.M{"description": bson.M{"$regex": *input.Search, "$options": "i"}},
-			bson.M{"client_name": bson.M{"$regex": *input.Search, "$options": "i"}},
-			bson.M{"client_phone": bson.M{"$regex": *input.Search, "$options": "i"}})
+	ordersComplete := len(orders)
+	if ordersComplete == 0 {
+		ordersComplete = 1
 	}
-	if input.CarrierID != nil {
-		fields["carrier_id"] = input.CarrierID
+	ranking := 0.00
+	for i := len(orders) - 1; i >= 0; i-- {
+		ranking += float64(orders[i].Experience.Score)
 	}
-	if len(orArray) > 0 {
-		fields["$or"] = orArray
-	}
+	//Sacar promedio
+	average := ranking / float64(ordersComplete)
 
-	ordersDB.Find(fields).Limit(input.Limit).Sort("-updated_at").All(&orders)
-
-	return orders, nil
+	var carrierStats = &model.CarrierStats{
+		len(ordersCompleteBD),
+		average,
+	}
+	return carrierStats, nil
 }
 
 func (r *queryResolver) Order(ctx context.Context, id string) (*model.Order, error) {
@@ -388,6 +425,58 @@ func (r *queryResolver) Order(ctx context.Context, id string) (*model.Order, err
 	return &order, nil
 }
 
+func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) ([]*model.Order, error) {
+	userContext := auth.ForContext(ctx)
+	var orders []*model.Order
+	var fields = bson.M{}
+	var orArray = []bson.M{}
+	var ordersDB = db.GetCollection("orders")
+	if userContext != nil && userContext.UserType == "store" {
+		fields["store_id"] = userContext.ID
+	}
+	if userContext != nil && userContext.UserType == "carrier" {
+		fields["carrier_id"] = userContext.ID
+	}
+	if input.State != nil {
+		fields["state"] = input.State
+	}
+	if input.CarrierID != nil {
+		fields["carrier_id"] = input.CarrierID
+	}
+	if input.State1 != nil {
+		orArray = append(orArray, bson.M{"state": input.State1})
+		orArray = append(orArray, bson.M{"state": input.State2})
+	}
+	if input.Search != nil {
+		orArray = append(orArray, bson.M{"description": bson.M{"$regex": *input.Search, "$options": "i"}},
+			bson.M{"client_name": bson.M{"$regex": *input.Search, "$options": "i"}},
+			bson.M{"client_phone": bson.M{"$regex": *input.Search, "$options": "i"}})
+	}
+	if len(orArray) > 0 {
+		fields["$or"] = orArray
+	}
+
+	ordersDB.Find(fields).Limit(input.Limit).Sort("-updated_at").All(&orders)
+
+	return orders, nil
+}
+
+func (r *subscriptionResolver) CarriersAvailable(ctx context.Context) (<-chan []*model.Carrier, error) {
+	id := RandStringRunes(8)
+	event := make(chan []*model.Carrier, 1)
+
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(Observers, id)
+		r.Unlock()
+	}()
+	r.Lock()
+	Observers[id] = event
+	r.Unlock()
+	return event, nil
+}
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -397,6 +486,10 @@ func (r *Resolver) Order() generated.OrderResolver { return &orderResolver{r} }
 // Query returns generated.QueryResolver implementation.
 func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 
+// Subscription returns generated.SubscriptionResolver implementation.
+func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
+
 type mutationResolver struct{ *Resolver }
 type orderResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
+type subscriptionResolver struct{ *Resolver }

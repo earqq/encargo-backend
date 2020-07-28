@@ -5,7 +5,9 @@ type Store struct {
 	FirebaseID string   `json:"firebase_id" bson:"firebase_id"`
 	Name       string   `json:"name"`
 	Username   string   `json:"username"`
+	Ruc   string   `json:"ruc"`
 	Password   string   `json:"password"`
 	Phone      string   `json:"phone"`
+	Token         string     `json:"token"`
 	Location   Location `json:"location" bson:"location"`
 }

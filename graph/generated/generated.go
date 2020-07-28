@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -38,6 +39,7 @@ type ResolverRoot interface {
 	Mutation() MutationResolver
 	Order() OrderResolver
 	Query() QueryResolver
+	Subscription() SubscriptionResolver
 }
 
 type DirectiveRoot struct {
@@ -46,6 +48,7 @@ type DirectiveRoot struct {
 type ComplexityRoot struct {
 	Carrier struct {
 		CurrentOrderID func(childComplexity int) int
+		Global         func(childComplexity int) int
 		ID             func(childComplexity int) int
 		MessageToken   func(childComplexity int) int
 		Name           func(childComplexity int) int
@@ -53,6 +56,7 @@ type ComplexityRoot struct {
 		Phone          func(childComplexity int) int
 		StateDelivery  func(childComplexity int) int
 		StoreID        func(childComplexity int) int
+		Token          func(childComplexity int) int
 		Username       func(childComplexity int) int
 	}
 
@@ -78,8 +82,8 @@ type ComplexityRoot struct {
 		CreateCarrier func(childComplexity int, input model.NewCarrier) int
 		CreateOrder   func(childComplexity int, input model.NewOrder) int
 		CreateStore   func(childComplexity int, input model.NewStore) int
-		DeleteStore   func(childComplexity int, id string) int
-		UpdateCarrier func(childComplexity int, id string, input model.UpdateCarrier) int
+		DeleteStore   func(childComplexity int) int
+		UpdateCarrier func(childComplexity int, input model.UpdateCarrier) int
 		UpdateOrder   func(childComplexity int, id string, input model.UpdateOrder) int
 	}
 
@@ -106,14 +110,14 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Carrier         func(childComplexity int, id string) int
-		Carriers        func(childComplexity int, limit *int, search *string, storeID string) int
-		GetCarrierStats func(childComplexity int, carrierID string) int
+		Carrier         func(childComplexity int) int
+		Carriers        func(childComplexity int, limit *int, search *string, global *int) int
+		GetCarrierStats func(childComplexity int) int
 		LoginCarrier    func(childComplexity int, username string, password string) int
 		LoginStore      func(childComplexity int, username string, password string) int
 		Order           func(childComplexity int, id string) int
-		Orders          func(childComplexity int, input model.FilterOptions, storeID string) int
-		Store           func(childComplexity int, id string) int
+		Orders          func(childComplexity int, input model.FilterOptions) int
+		Store           func(childComplexity int) int
 		Stores          func(childComplexity int, limit *int, search *string) int
 	}
 
@@ -124,15 +128,21 @@ type ComplexityRoot struct {
 		Name       func(childComplexity int) int
 		Password   func(childComplexity int) int
 		Phone      func(childComplexity int) int
+		Ruc        func(childComplexity int) int
+		Token      func(childComplexity int) int
 		Username   func(childComplexity int) int
+	}
+
+	Subscription struct {
+		CarriersAvailable func(childComplexity int) int
 	}
 }
 
 type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
-	UpdateCarrier(ctx context.Context, id string, input model.UpdateCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
-	DeleteStore(ctx context.Context, id string) (*model.Store, error)
+	UpdateCarrier(ctx context.Context, input model.UpdateCarrier) (*model.Carrier, error)
+	DeleteStore(ctx context.Context) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
 	UpdateOrder(ctx context.Context, id string, input model.UpdateOrder) (*model.Order, error)
 }
@@ -141,15 +151,18 @@ type OrderResolver interface {
 	Store(ctx context.Context, obj *model.Order) (*model.Store, error)
 }
 type QueryResolver interface {
-	Carrier(ctx context.Context, id string) (*model.Carrier, error)
-	Carriers(ctx context.Context, limit *int, search *string, storeID string) ([]*model.Carrier, error)
+	Carrier(ctx context.Context) (*model.Carrier, error)
+	Carriers(ctx context.Context, limit *int, search *string, global *int) ([]*model.Carrier, error)
 	LoginCarrier(ctx context.Context, username string, password string) (*model.Carrier, error)
 	LoginStore(ctx context.Context, username string, password string) (*model.Store, error)
-	GetCarrierStats(ctx context.Context, carrierID string) (*model.CarrierStats, error)
-	Store(ctx context.Context, id string) (*model.Store, error)
+	Store(ctx context.Context) (*model.Store, error)
 	Stores(ctx context.Context, limit *int, search *string) ([]*model.Store, error)
-	Orders(ctx context.Context, input model.FilterOptions, storeID string) ([]*model.Order, error)
+	GetCarrierStats(ctx context.Context) (*model.CarrierStats, error)
 	Order(ctx context.Context, id string) (*model.Order, error)
+	Orders(ctx context.Context, input model.FilterOptions) ([]*model.Order, error)
+}
+type SubscriptionResolver interface {
+	CarriersAvailable(ctx context.Context) (<-chan []*model.Carrier, error)
 }
 
 type executableSchema struct {
@@ -173,6 +186,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Carrier.CurrentOrderID(childComplexity), true
+
+	case "Carrier.global":
+		if e.complexity.Carrier.Global == nil {
+			break
+		}
+
+		return e.complexity.Carrier.Global(childComplexity), true
 
 	case "Carrier.id":
 		if e.complexity.Carrier.ID == nil {
@@ -222,6 +242,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Carrier.StoreID(childComplexity), true
+
+	case "Carrier.token":
+		if e.complexity.Carrier.Token == nil {
+			break
+		}
+
+		return e.complexity.Carrier.Token(childComplexity), true
 
 	case "Carrier.username":
 		if e.complexity.Carrier.Username == nil {
@@ -334,12 +361,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Mutation_deleteStore_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Mutation.DeleteStore(childComplexity, args["id"].(string)), true
+		return e.complexity.Mutation.DeleteStore(childComplexity), true
 
 	case "Mutation.updateCarrier":
 		if e.complexity.Mutation.UpdateCarrier == nil {
@@ -351,7 +373,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateCarrier(childComplexity, args["id"].(string), args["input"].(model.UpdateCarrier)), true
+		return e.complexity.Mutation.UpdateCarrier(childComplexity, args["input"].(model.UpdateCarrier)), true
 
 	case "Mutation.updateOrder":
 		if e.complexity.Mutation.UpdateOrder == nil {
@@ -482,12 +504,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		args, err := ec.field_Query_carrier_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Carrier(childComplexity, args["id"].(string)), true
+		return e.complexity.Query.Carrier(childComplexity), true
 
 	case "Query.carriers":
 		if e.complexity.Query.Carriers == nil {
@@ -499,19 +516,14 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Carriers(childComplexity, args["limit"].(*int), args["search"].(*string), args["store_id"].(string)), true
+		return e.complexity.Query.Carriers(childComplexity, args["limit"].(*int), args["search"].(*string), args["global"].(*int)), true
 
 	case "Query.getCarrierStats":
 		if e.complexity.Query.GetCarrierStats == nil {
 			break
 		}
 
-		args, err := ec.field_Query_getCarrierStats_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.GetCarrierStats(childComplexity, args["carrier_id"].(string)), true
+		return e.complexity.Query.GetCarrierStats(childComplexity), true
 
 	case "Query.loginCarrier":
 		if e.complexity.Query.LoginCarrier == nil {
@@ -559,19 +571,14 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Orders(childComplexity, args["input"].(model.FilterOptions), args["store_id"].(string)), true
+		return e.complexity.Query.Orders(childComplexity, args["input"].(model.FilterOptions)), true
 
 	case "Query.store":
 		if e.complexity.Query.Store == nil {
 			break
 		}
 
-		args, err := ec.field_Query_store_args(context.TODO(), rawArgs)
-		if err != nil {
-			return 0, false
-		}
-
-		return e.complexity.Query.Store(childComplexity, args["id"].(string)), true
+		return e.complexity.Query.Store(childComplexity), true
 
 	case "Query.stores":
 		if e.complexity.Query.Stores == nil {
@@ -627,12 +634,33 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Store.Phone(childComplexity), true
 
+	case "Store.ruc":
+		if e.complexity.Store.Ruc == nil {
+			break
+		}
+
+		return e.complexity.Store.Ruc(childComplexity), true
+
+	case "Store.token":
+		if e.complexity.Store.Token == nil {
+			break
+		}
+
+		return e.complexity.Store.Token(childComplexity), true
+
 	case "Store.username":
 		if e.complexity.Store.Username == nil {
 			break
 		}
 
 		return e.complexity.Store.Username(childComplexity), true
+
+	case "Subscription.carriersAvailable":
+		if e.complexity.Subscription.CarriersAvailable == nil {
+			break
+		}
+
+		return e.complexity.Subscription.CarriersAvailable(childComplexity), true
 
 	}
 	return 0, false
@@ -672,6 +700,23 @@ func (e *executableSchema) Exec(ctx context.Context) graphql.ResponseHandler {
 				Data: buf.Bytes(),
 			}
 		}
+	case ast.Subscription:
+		next := ec._Subscription(ctx, rc.Operation.SelectionSet)
+
+		var buf bytes.Buffer
+		return func(ctx context.Context) *graphql.Response {
+			buf.Reset()
+			data := next()
+
+			if data == nil {
+				return nil
+			}
+			data.MarshalGQL(&buf)
+
+			return &graphql.Response{
+				Data: buf.Bytes(),
+			}
+		}
 
 	default:
 		return graphql.OneShot(graphql.ErrorResponse(ctx, "unsupported GraphQL operation"))
@@ -700,10 +745,12 @@ func (ec *executionContext) introspectType(name string) (*introspection.Type, er
 var sources = []*ast.Source{
 	&ast.Source{Name: "graph/schema.graphqls", Input: `type Carrier {
     id: String
-    store_id: String!
+    store_id: String
     name: String!
     state_delivery: Int!
     username: String!
+    global: Int!
+    token: String!
     password: String!
     current_order_id: String
     message_token: String!
@@ -717,15 +764,17 @@ type Location  {
 	latitude:  String
 	longitude: String
 	address:   String
-  name: String
+    name: String
 }
 
 type Store {
-    id: ID!
+    id: String!
     firebaseID:String
     name: String!
     username:String
     password:String
+    ruc:String
+    token:String
     phone: String!
     location: Location
 }
@@ -755,11 +804,8 @@ type Order{
     experience: Experience
 }
 
-
-
 input FilterOptions{
     limit:Int!
-    id:String
     state:Int
     state1:Int
     state2:Int
@@ -772,8 +818,9 @@ input NewOrderDetail {
     description: String
 }
 input NewOrder {
-    store_id:String!
+    store_id:String
     price: Float!
+    store_ruc: String
     client_phone: String!
     client_name: String!
     arrival_location: AddLocation
@@ -787,10 +834,11 @@ input UpdateOrder {
     score_description: String
 }
 input NewCarrier {
-  store_id: String!
+  store_id: String
   name: String!
   username: String!
   password: String!
+  global: Int!
   message_token: String
   phone: String!
 }
@@ -798,10 +846,8 @@ input UpdateCarrier {
   name: String
   state_delivery: Int
   state : Boolean
-  username: String
   password: String
   message_token: String
-  phone: String
 }
 input AddLocation {
   latitude:String
@@ -813,30 +859,33 @@ input AddLocation {
 input NewStore {
     name: String!
     phone: String!
-    username:String
-    password:String
+    ruc: String
+    username:String!
+    password:String!
     firebaseID: String
     location: AddLocation
 }
 type Query {
-    carrier(id:String!): Carrier!
-    carriers(limit:Int,search:String,store_id: String!): [Carrier]!
+    carrier: Carrier!
+    carriers(limit:Int,search:String, global:Int): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
-    getCarrierStats(carrier_id:String!): CarrierStats!
-    store(id: String!): Store
+    store: Store
     stores(limit: Int, search:String): [Store]!
-    orders(input:FilterOptions!,store_id:String!): [Order]!
+    getCarrierStats: CarrierStats
     order(id:String!): Order!
+    orders(input:FilterOptions!): [Order]!
 }
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
-    updateCarrier(id: String!,input:UpdateCarrier!): Carrier!
     createStore(input: NewStore!): Store!
-    deleteStore(id: String!): Store!
+    updateCarrier(input:UpdateCarrier!): Carrier!
+    deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
-}`, BuiltIn: false},
+}
+
+type Subscription {  carriersAvailable: [Carrier]!}`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
 
@@ -886,39 +935,17 @@ func (ec *executionContext) field_Mutation_createStore_args(ctx context.Context,
 	return args, nil
 }
 
-func (ec *executionContext) field_Mutation_deleteStore_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["id"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Mutation_updateCarrier_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["id"] = arg0
-	var arg1 model.UpdateCarrier
+	var arg0 model.UpdateCarrier
 	if tmp, ok := rawArgs["input"]; ok {
-		arg1, err = ec.unmarshalNUpdateCarrier2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrier(ctx, tmp)
+		arg0, err = ec.unmarshalNUpdateCarrier2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrier(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["input"] = arg1
+	args["input"] = arg0
 	return args, nil
 }
 
@@ -958,20 +985,6 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 	return args, nil
 }
 
-func (ec *executionContext) field_Query_carrier_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["id"] = arg0
-	return args, nil
-}
-
 func (ec *executionContext) field_Query_carriers_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
@@ -991,28 +1004,14 @@ func (ec *executionContext) field_Query_carriers_args(ctx context.Context, rawAr
 		}
 	}
 	args["search"] = arg1
-	var arg2 string
-	if tmp, ok := rawArgs["store_id"]; ok {
-		arg2, err = ec.unmarshalNString2string(ctx, tmp)
+	var arg2 *int
+	if tmp, ok := rawArgs["global"]; ok {
+		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["store_id"] = arg2
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_getCarrierStats_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["carrier_id"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["carrier_id"] = arg0
+	args["global"] = arg2
 	return args, nil
 }
 
@@ -1085,28 +1084,6 @@ func (ec *executionContext) field_Query_orders_args(ctx context.Context, rawArgs
 		}
 	}
 	args["input"] = arg0
-	var arg1 string
-	if tmp, ok := rawArgs["store_id"]; ok {
-		arg1, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["store_id"] = arg1
-	return args, nil
-}
-
-func (ec *executionContext) field_Query_store_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
-	var err error
-	args := map[string]interface{}{}
-	var arg0 string
-	if tmp, ok := rawArgs["id"]; ok {
-		arg0, err = ec.unmarshalNString2string(ctx, tmp)
-		if err != nil {
-			return nil, err
-		}
-	}
-	args["id"] = arg0
 	return args, nil
 }
 
@@ -1223,14 +1200,11 @@ func (ec *executionContext) _Carrier_store_id(ctx context.Context, field graphql
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNString2string(ctx, field.Selections, res)
+	return ec.marshalOString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Carrier_name(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
@@ -1319,6 +1293,74 @@ func (ec *executionContext) _Carrier_username(ctx context.Context, field graphql
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return obj.Username, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Carrier_global(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Carrier",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Global, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(int)
+	fc.Result = res
+	return ec.marshalNInt2int(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Carrier_token(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Carrier",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Token, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1803,47 +1845,6 @@ func (ec *executionContext) _Mutation_createCarrier(ctx context.Context, field g
 	return ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Mutation_updateCarrier(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Mutation",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_updateCarrier_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["id"].(string), args["input"].(model.UpdateCarrier))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.Carrier)
-	fc.Result = res
-	return ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Mutation_createStore(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -1885,7 +1886,7 @@ func (ec *executionContext) _Mutation_createStore(ctx context.Context, field gra
 	return ec.marshalNStore2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐStore(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Mutation_updateCarrier(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1901,7 +1902,7 @@ func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field gra
 
 	ctx = graphql.WithFieldContext(ctx, fc)
 	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Mutation_deleteStore_args(ctx, rawArgs)
+	args, err := ec.field_Mutation_updateCarrier_args(ctx, rawArgs)
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
@@ -1909,7 +1910,41 @@ func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field gra
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().DeleteStore(rctx, args["id"].(string))
+		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["input"].(model.UpdateCarrier))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Carrier)
+	fc.Result = res
+	return ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteStore(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteStore(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2552,16 +2587,9 @@ func (ec *executionContext) _Query_carrier(ctx context.Context, field graphql.Co
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_carrier_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Carrier(rctx, args["id"].(string))
+		return ec.resolvers.Query().Carrier(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2602,7 +2630,7 @@ func (ec *executionContext) _Query_carriers(ctx context.Context, field graphql.C
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Carriers(rctx, args["limit"].(*int), args["search"].(*string), args["store_id"].(string))
+		return ec.resolvers.Query().Carriers(rctx, args["limit"].(*int), args["search"].(*string), args["global"].(*int))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2701,47 +2729,6 @@ func (ec *executionContext) _Query_loginStore(ctx context.Context, field graphql
 	return ec.marshalNStore2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐStore(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Query_getCarrierStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Query",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_getCarrierStats_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().GetCarrierStats(rctx, args["carrier_id"].(string))
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	res := resTmp.(*model.CarrierStats)
-	fc.Result = res
-	return ec.marshalNCarrierStats2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Query_store(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -2757,16 +2744,9 @@ func (ec *executionContext) _Query_store(ctx context.Context, field graphql.Coll
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_store_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Store(rctx, args["id"].(string))
+		return ec.resolvers.Query().Store(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -2821,7 +2801,7 @@ func (ec *executionContext) _Query_stores(ctx context.Context, field graphql.Col
 	return ec.marshalNStore2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐStore(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Query_orders(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+func (ec *executionContext) _Query_getCarrierStats(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -2836,30 +2816,20 @@ func (ec *executionContext) _Query_orders(ctx context.Context, field graphql.Col
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
-	rawArgs := field.ArgumentMap(ec.Variables)
-	args, err := ec.field_Query_orders_args(ctx, rawArgs)
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Orders(rctx, args["input"].(model.FilterOptions), args["store_id"].(string))
+		return ec.resolvers.Query().GetCarrierStats(rctx)
 	})
 	if err != nil {
 		ec.Error(ctx, err)
 		return graphql.Null
 	}
 	if resTmp == nil {
-		if !graphql.HasFieldError(ctx, fc) {
-			ec.Errorf(ctx, "must not be null")
-		}
 		return graphql.Null
 	}
-	res := resTmp.([]*model.Order)
+	res := resTmp.(*model.CarrierStats)
 	fc.Result = res
-	return ec.marshalNOrder2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res)
+	return ec.marshalOCarrierStats2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query_order(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -2901,6 +2871,47 @@ func (ec *executionContext) _Query_order(ctx context.Context, field graphql.Coll
 	res := resTmp.(*model.Order)
 	fc.Result = res
 	return ec.marshalNOrder2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Query_orders(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Query",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_orders_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Query().Orders(rctx, args["input"].(model.FilterOptions))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.([]*model.Order)
+	fc.Result = res
+	return ec.marshalNOrder2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Query___type(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
@@ -3003,7 +3014,7 @@ func (ec *executionContext) _Store_id(ctx context.Context, field graphql.Collect
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Store_firebaseID(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
@@ -3133,6 +3144,68 @@ func (ec *executionContext) _Store_password(ctx context.Context, field graphql.C
 	return ec.marshalOString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Store_ruc(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Store",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Ruc, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalOString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Store_token(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Store",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Token, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalOString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Store_phone(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3196,6 +3269,50 @@ func (ec *executionContext) _Store_location(ctx context.Context, field graphql.C
 	res := resTmp.(model.Location)
 	fc.Result = res
 	return ec.marshalOLocation2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐLocation(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Subscription_carriersAvailable(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Subscription",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().CarriersAvailable(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func() graphql.Marshaler {
+		res, ok := <-resTmp.(<-chan []*model.Carrier)
+		if !ok {
+			return nil
+		}
+		return graphql.WriterFunc(func(w io.Writer) {
+			w.Write([]byte{'{'})
+			graphql.MarshalString(field.Alias).MarshalGQL(w)
+			w.Write([]byte{':'})
+			ec.marshalNCarrier2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res).MarshalGQL(w)
+			w.Write([]byte{'}'})
+		})
+	}
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -4301,12 +4418,6 @@ func (ec *executionContext) unmarshalInputFilterOptions(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
-		case "id":
-			var err error
-			it.ID, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		case "state":
 			var err error
 			it.State, err = ec.unmarshalOInt2ᚖint(ctx, v)
@@ -4351,7 +4462,7 @@ func (ec *executionContext) unmarshalInputNewCarrier(ctx context.Context, obj in
 		switch k {
 		case "store_id":
 			var err error
-			it.StoreID, err = ec.unmarshalNString2string(ctx, v)
+			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4370,6 +4481,12 @@ func (ec *executionContext) unmarshalInputNewCarrier(ctx context.Context, obj in
 		case "password":
 			var err error
 			it.Password, err = ec.unmarshalNString2string(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "global":
+			var err error
+			it.Global, err = ec.unmarshalNInt2int(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4399,13 +4516,19 @@ func (ec *executionContext) unmarshalInputNewOrder(ctx context.Context, obj inte
 		switch k {
 		case "store_id":
 			var err error
-			it.StoreID, err = ec.unmarshalNString2string(ctx, v)
+			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
 		case "price":
 			var err error
 			it.Price, err = ec.unmarshalNFloat2float64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "store_ruc":
+			var err error
+			it.StoreRuc, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4487,15 +4610,21 @@ func (ec *executionContext) unmarshalInputNewStore(ctx context.Context, obj inte
 			if err != nil {
 				return it, err
 			}
+		case "ruc":
+			var err error
+			it.Ruc, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		case "username":
 			var err error
-			it.Username, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			it.Username, err = ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
 		case "password":
 			var err error
-			it.Password, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			it.Password, err = ec.unmarshalNString2string(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4541,12 +4670,6 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
-		case "username":
-			var err error
-			it.Username, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		case "password":
 			var err error
 			it.Password, err = ec.unmarshalOString2ᚖstring(ctx, v)
@@ -4556,12 +4679,6 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 		case "message_token":
 			var err error
 			it.MessageToken, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "phone":
-			var err error
-			it.Phone, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -4630,9 +4747,6 @@ func (ec *executionContext) _Carrier(ctx context.Context, sel ast.SelectionSet, 
 			out.Values[i] = ec._Carrier_id(ctx, field, obj)
 		case "store_id":
 			out.Values[i] = ec._Carrier_store_id(ctx, field, obj)
-			if out.Values[i] == graphql.Null {
-				invalids++
-			}
 		case "name":
 			out.Values[i] = ec._Carrier_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -4645,6 +4759,16 @@ func (ec *executionContext) _Carrier(ctx context.Context, sel ast.SelectionSet, 
 			}
 		case "username":
 			out.Values[i] = ec._Carrier_username(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "global":
+			out.Values[i] = ec._Carrier_global(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "token":
+			out.Values[i] = ec._Carrier_token(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -4795,13 +4919,13 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "updateCarrier":
-			out.Values[i] = ec._Mutation_updateCarrier(ctx, field)
+		case "createStore":
+			out.Values[i] = ec._Mutation_createStore(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
-		case "createStore":
-			out.Values[i] = ec._Mutation_createStore(ctx, field)
+		case "updateCarrier":
+			out.Values[i] = ec._Mutation_updateCarrier(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -5029,20 +5153,6 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
-		case "getCarrierStats":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Query_getCarrierStats(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
-				return res
-			})
 		case "store":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
@@ -5068,7 +5178,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 				}
 				return res
 			})
-		case "orders":
+		case "getCarrierStats":
 			field := field
 			out.Concurrently(i, func() (res graphql.Marshaler) {
 				defer func() {
@@ -5076,10 +5186,7 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 						ec.Error(ctx, ec.Recover(ctx, r))
 					}
 				}()
-				res = ec._Query_orders(ctx, field)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
+				res = ec._Query_getCarrierStats(ctx, field)
 				return res
 			})
 		case "order":
@@ -5091,6 +5198,20 @@ func (ec *executionContext) _Query(ctx context.Context, sel ast.SelectionSet) gr
 					}
 				}()
 				res = ec._Query_order(ctx, field)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
+		case "orders":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Query_orders(ctx, field)
 				if res == graphql.Null {
 					atomic.AddUint32(&invalids, 1)
 				}
@@ -5138,6 +5259,10 @@ func (ec *executionContext) _Store(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = ec._Store_username(ctx, field, obj)
 		case "password":
 			out.Values[i] = ec._Store_password(ctx, field, obj)
+		case "ruc":
+			out.Values[i] = ec._Store_ruc(ctx, field, obj)
+		case "token":
+			out.Values[i] = ec._Store_token(ctx, field, obj)
 		case "phone":
 			out.Values[i] = ec._Store_phone(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -5154,6 +5279,26 @@ func (ec *executionContext) _Store(ctx context.Context, sel ast.SelectionSet, ob
 		return graphql.Null
 	}
 	return out
+}
+
+var subscriptionImplementors = []string{"Subscription"}
+
+func (ec *executionContext) _Subscription(ctx context.Context, sel ast.SelectionSet) func() graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, subscriptionImplementors)
+	ctx = graphql.WithFieldContext(ctx, &graphql.FieldContext{
+		Object: "Subscription",
+	})
+	if len(fields) != 1 {
+		ec.Errorf(ctx, "must subscribe to exactly one stream")
+		return nil
+	}
+
+	switch fields[0].Name {
+	case "carriersAvailable":
+		return ec._Subscription_carriersAvailable(ctx, fields[0])
+	default:
+		panic("unknown field " + strconv.Quote(fields[0].Name))
+	}
 }
 
 var __DirectiveImplementors = []string{"__Directive"}
@@ -5464,20 +5609,6 @@ func (ec *executionContext) marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑ
 		return graphql.Null
 	}
 	return ec._Carrier(ctx, sel, v)
-}
-
-func (ec *executionContext) marshalNCarrierStats2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx context.Context, sel ast.SelectionSet, v model.CarrierStats) graphql.Marshaler {
-	return ec._CarrierStats(ctx, sel, &v)
-}
-
-func (ec *executionContext) marshalNCarrierStats2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx context.Context, sel ast.SelectionSet, v *model.CarrierStats) graphql.Marshaler {
-	if v == nil {
-		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
-			ec.Errorf(ctx, "must not be null")
-		}
-		return graphql.Null
-	}
-	return ec._CarrierStats(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalNFilterOptions2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐFilterOptions(ctx context.Context, v interface{}) (model.FilterOptions, error) {
@@ -5952,6 +6083,17 @@ func (ec *executionContext) marshalOCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑ
 		return graphql.Null
 	}
 	return ec._Carrier(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOCarrierStats2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx context.Context, sel ast.SelectionSet, v model.CarrierStats) graphql.Marshaler {
+	return ec._CarrierStats(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalOCarrierStats2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrierStats(ctx context.Context, sel ast.SelectionSet, v *model.CarrierStats) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._CarrierStats(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalOExperience2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐExperience(ctx context.Context, sel ast.SelectionSet, v model.Experience) graphql.Marshaler {

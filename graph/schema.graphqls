@@ -1,9 +1,11 @@
 type Carrier {
     id: String
-    store_id: String!
+    store_id: String
     name: String!
     state_delivery: Int!
     username: String!
+    global: Int!
+    token: String!
     password: String!
     current_order_id: String
     message_token: String!
@@ -17,15 +19,17 @@ type Location  {
 	latitude:  String
 	longitude: String
 	address:   String
-  name: String
+    name: String
 }
 
 type Store {
-    id: ID!
+    id: String!
     firebaseID:String
     name: String!
     username:String
     password:String
+    ruc:String
+    token:String
     phone: String!
     location: Location
 }
@@ -55,11 +59,8 @@ type Order{
     experience: Experience
 }
 
-
-
 input FilterOptions{
     limit:Int!
-    id:String
     state:Int
     state1:Int
     state2:Int
@@ -72,8 +73,9 @@ input NewOrderDetail {
     description: String
 }
 input NewOrder {
-    store_id:String!
+    store_id:String
     price: Float!
+    store_ruc: String
     client_phone: String!
     client_name: String!
     arrival_location: AddLocation
@@ -87,10 +89,11 @@ input UpdateOrder {
     score_description: String
 }
 input NewCarrier {
-  store_id: String!
+  store_id: String
   name: String!
   username: String!
   password: String!
+  global: Int!
   message_token: String
   phone: String!
 }
@@ -98,10 +101,8 @@ input UpdateCarrier {
   name: String
   state_delivery: Int
   state : Boolean
-  username: String
   password: String
   message_token: String
-  phone: String
 }
 input AddLocation {
   latitude:String
@@ -113,27 +114,30 @@ input AddLocation {
 input NewStore {
     name: String!
     phone: String!
-    username:String
-    password:String
+    ruc: String
+    username:String!
+    password:String!
     firebaseID: String
     location: AddLocation
 }
 type Query {
-    carrier(id:String!): Carrier!
-    carriers(limit:Int,search:String,store_id: String!): [Carrier]!
+    carrier: Carrier!
+    carriers(limit:Int,search:String, global:Int): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
-    getCarrierStats(carrier_id:String!): CarrierStats!
-    store(id: String!): Store
+    store: Store
     stores(limit: Int, search:String): [Store]!
-    orders(input:FilterOptions!,store_id:String!): [Order]!
+    getCarrierStats: CarrierStats
     order(id:String!): Order!
+    orders(input:FilterOptions!): [Order]!
 }
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
-    updateCarrier(id: String!,input:UpdateCarrier!): Carrier!
     createStore(input: NewStore!): Store!
-    deleteStore(id: String!): Store!
+    updateCarrier(input:UpdateCarrier!): Carrier!
+    deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
 }
+
+type Subscription {  carriersAvailable: [Carrier]!}

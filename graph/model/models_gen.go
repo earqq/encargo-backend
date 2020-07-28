@@ -16,7 +16,6 @@ type CarrierStats struct {
 
 type FilterOptions struct {
 	Limit     int     `json:"limit"`
-	ID        *string `json:"id"`
 	State     *int    `json:"state"`
 	State1    *int    `json:"state1"`
 	State2    *int    `json:"state2"`
@@ -25,17 +24,19 @@ type FilterOptions struct {
 }
 
 type NewCarrier struct {
-	StoreID      string  `json:"store_id"`
+	StoreID      *string `json:"store_id"`
 	Name         string  `json:"name"`
 	Username     string  `json:"username"`
 	Password     string  `json:"password"`
+	Global       int     `json:"global"`
 	MessageToken *string `json:"message_token"`
 	Phone        string  `json:"phone"`
 }
 
 type NewOrder struct {
-	StoreID         string            `json:"store_id"`
+	StoreID         *string           `json:"store_id"`
 	Price           float64           `json:"price"`
+	StoreRuc        *string           `json:"store_ruc"`
 	ClientPhone     string            `json:"client_phone"`
 	ClientName      string            `json:"client_name"`
 	ArrivalLocation *AddLocation      `json:"arrival_location"`
@@ -51,8 +52,9 @@ type NewOrderDetail struct {
 type NewStore struct {
 	Name       string       `json:"name"`
 	Phone      string       `json:"phone"`
-	Username   *string      `json:"username"`
-	Password   *string      `json:"password"`
+	Ruc        *string      `json:"ruc"`
+	Username   string       `json:"username"`
+	Password   string       `json:"password"`
 	FirebaseID *string      `json:"firebaseID"`
 	Location   *AddLocation `json:"location"`
 }
@@ -61,10 +63,8 @@ type UpdateCarrier struct {
 	Name          *string `json:"name"`
 	StateDelivery *int    `json:"state_delivery"`
 	State         *bool   `json:"state"`
-	Username      *string `json:"username"`
 	Password      *string `json:"password"`
 	MessageToken  *string `json:"message_token"`
-	Phone         *string `json:"phone"`
 }
 
 type UpdateOrder struct {
