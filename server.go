@@ -14,7 +14,7 @@ import (
 	"github.com/rs/cors"
 )
 
-const defaultPort = "8091"
+const defaultPort = "8096"
 
 func main() {
 	port := os.Getenv("PORT")
