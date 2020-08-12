@@ -82,6 +82,7 @@ type ComplexityRoot struct {
 		CreateCarrier func(childComplexity int, input model.NewCarrier) int
 		CreateOrder   func(childComplexity int, input model.NewOrder) int
 		CreateStore   func(childComplexity int, input model.NewStore) int
+		DeleteCarrier func(childComplexity int, carrierID *string) int
 		DeleteStore   func(childComplexity int) int
 		UpdateCarrier func(childComplexity int, input model.UpdateCarrier) int
 		UpdateOrder   func(childComplexity int, id string, input model.UpdateOrder) int
@@ -144,6 +145,7 @@ type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
 	UpdateCarrier(ctx context.Context, input model.UpdateCarrier) (*model.Carrier, error)
+	DeleteCarrier(ctx context.Context, carrierID *string) (*model.Carrier, error)
 	DeleteStore(ctx context.Context) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
 	UpdateOrder(ctx context.Context, id string, input model.UpdateOrder) (*model.Order, error)
@@ -360,6 +362,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.CreateStore(childComplexity, args["input"].(model.NewStore)), true
+
+	case "Mutation.deleteCarrier":
+		if e.complexity.Mutation.DeleteCarrier == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_deleteCarrier_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.DeleteCarrier(childComplexity, args["carrier_id"].(*string)), true
 
 	case "Mutation.deleteStore":
 		if e.complexity.Mutation.DeleteStore == nil {
@@ -844,10 +858,8 @@ input NewOrderDetail {
     description: String
 }
 input NewOrder {
-    store_id:String
     price: Float!
     delivery_price: Float
-    store_ruc: String
     client_phone: String!
     client_name: String!
     arrival_location: AddLocation
@@ -909,6 +921,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
     updateCarrier(input:UpdateCarrier!): Carrier!
+    deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
@@ -963,6 +976,20 @@ func (ec *executionContext) field_Mutation_createStore_args(ctx context.Context,
 		}
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_deleteCarrier_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["carrier_id"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["carrier_id"] = arg0
 	return args, nil
 }
 
@@ -1956,6 +1983,47 @@ func (ec *executionContext) _Mutation_updateCarrier(ctx context.Context, field g
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["input"].(model.UpdateCarrier))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Carrier)
+	fc.Result = res
+	return ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_deleteCarrier(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_deleteCarrier_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().DeleteCarrier(rctx, args["carrier_id"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4628,12 +4696,6 @@ func (ec *executionContext) unmarshalInputNewOrder(ctx context.Context, obj inte
 
 	for k, v := range asMap {
 		switch k {
-		case "store_id":
-			var err error
-			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		case "price":
 			var err error
 			it.Price, err = ec.unmarshalNFloat2float64(ctx, v)
@@ -4643,12 +4705,6 @@ func (ec *executionContext) unmarshalInputNewOrder(ctx context.Context, obj inte
 		case "delivery_price":
 			var err error
 			it.DeliveryPrice, err = ec.unmarshalOFloat2ᚖfloat64(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "store_ruc":
-			var err error
-			it.StoreRuc, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -5058,6 +5114,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "updateCarrier":
 			out.Values[i] = ec._Mutation_updateCarrier(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "deleteCarrier":
+			out.Values[i] = ec._Mutation_deleteCarrier(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}

@@ -137,6 +137,27 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, input model.Update
 	return &carrier, nil
 }
 
+func (r *mutationResolver) DeleteCarrier(ctx context.Context, carrierID *string) (*model.Carrier, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
+	}
+	var store model.Store
+	var carrier model.Carrier
+	carriersDB := db.GetCollection("carriers")
+	storesDB := db.GetCollection("stores")
+	if err := storesDB.Find(bson.M{"username": userContext.Username}).One(&store); err != nil {
+		return &model.Carrier{}, errors.New("No existe este tienda")
+	}
+	if err := carriersDB.Find(bson.M{"_id": carrierID, "store_id": store.ID}).One(&carrier); err != nil {
+		return &model.Carrier{}, errors.New("No existe este repartidor para esta tienda")
+	}
+	if err := carriersDB.Remove(bson.M{"_id": carrierID}); err != nil {
+		return &model.Carrier{}, errors.New("error al borrar repartidor")
+	}
+	return &carrier, nil
+}
+
 func (r *mutationResolver) DeleteStore(ctx context.Context) (*model.Store, error) {
 	userContext := auth.ForContext(ctx)
 	if userContext == nil {
@@ -156,21 +177,18 @@ func (r *mutationResolver) DeleteStore(ctx context.Context) (*model.Store, error
 func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error) {
 	var order model.Order
 	var ordersBD = db.GetCollection("orders")
+	storeDB := db.GetCollection("stores")
 	var store model.Store
-	var storeDB = db.GetCollection("stores")
 	var ExitLocation model.Location
 	id := bson.NewObjectId()
 	loc := time.FixedZone("UTC-5", -5*60*60)
 	t := time.Now().In(loc)
-	if input.StoreRuc != nil {
-		if err := storeDB.Find(bson.M{"ruc": input.StoreRuc}).One(&store); err != nil {
-			return &model.Order{}, errors.New("No existe tienda con ese RUC")
-		}
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Order{}, errors.New("Acceso denegado")
 	}
-	if input.StoreID != nil {
-		if err := storeDB.Find(bson.M{"_id": input.StoreID}).One(&store); err != nil {
-			return &model.Order{}, errors.New("No existe tienda con ese ID")
-		}
+	if err := storeDB.Find(bson.M{"username": userContext.Username}).One(&store); err != nil {
+		return &model.Order{}, err
 	}
 	ExitLocation.Latitude = store.Location.Latitude
 	ExitLocation.Longitude = store.Location.Longitude

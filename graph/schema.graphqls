@@ -75,10 +75,8 @@ input NewOrderDetail {
     description: String
 }
 input NewOrder {
-    store_id:String
     price: Float!
     delivery_price: Float
-    store_ruc: String
     client_phone: String!
     client_name: String!
     arrival_location: AddLocation
@@ -140,6 +138,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
     updateCarrier(input:UpdateCarrier!): Carrier!
+    deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!

@@ -34,10 +34,8 @@ type NewCarrier struct {
 }
 
 type NewOrder struct {
-	StoreID         *string           `json:"store_id"`
 	Price           float64           `json:"price"`
 	DeliveryPrice   *float64          `json:"delivery_price"`
-	StoreRuc        *string           `json:"store_ruc"`
 	ClientPhone     string            `json:"client_phone"`
 	ClientName      string            `json:"client_name"`
 	ArrivalLocation *AddLocation      `json:"arrival_location"`
