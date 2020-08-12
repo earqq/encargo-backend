@@ -113,7 +113,7 @@ type ComplexityRoot struct {
 
 	Query struct {
 		Carrier         func(childComplexity int, id *string) int
-		Carriers        func(childComplexity int, limit *int, search *string, global *int) int
+		Carriers        func(childComplexity int, limit *int, search *string, global *bool) int
 		GetCarrierStats func(childComplexity int) int
 		LoginCarrier    func(childComplexity int, username string, password string) int
 		LoginStore      func(childComplexity int, username string, password string) int
@@ -157,7 +157,7 @@ type OrderResolver interface {
 }
 type QueryResolver interface {
 	Carrier(ctx context.Context, id *string) (*model.Carrier, error)
-	Carriers(ctx context.Context, limit *int, search *string, global *int) ([]*model.Carrier, error)
+	Carriers(ctx context.Context, limit *int, search *string, global *bool) ([]*model.Carrier, error)
 	LoginCarrier(ctx context.Context, username string, password string) (*model.Carrier, error)
 	LoginStore(ctx context.Context, username string, password string) (*model.Store, error)
 	Store(ctx context.Context) (*model.Store, error)
@@ -540,7 +540,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Query.Carriers(childComplexity, args["limit"].(*int), args["search"].(*string), args["global"].(*int)), true
+		return e.complexity.Query.Carriers(childComplexity, args["limit"].(*int), args["search"].(*string), args["global"].(*bool)), true
 
 	case "Query.getCarrierStats":
 		if e.complexity.Query.GetCarrierStats == nil {
@@ -871,7 +871,7 @@ input NewCarrier {
   name: String!
   username: String!
   password: String!
-  global: Int!
+  global: Boolean!
   message_token: String
   phone: String!
 }
@@ -896,7 +896,7 @@ input NewStore {
 }
 type Query {
     carrier(id: String): Carrier!
-    carriers(limit:Int,search:String, global:Int): [Carrier]!
+    carriers(limit:Int,search:String, global:Boolean): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
     store: Store
@@ -1049,9 +1049,9 @@ func (ec *executionContext) field_Query_carriers_args(ctx context.Context, rawAr
 		}
 	}
 	args["search"] = arg1
-	var arg2 *int
+	var arg2 *bool
 	if tmp, ok := rawArgs["global"]; ok {
-		arg2, err = ec.unmarshalOInt2ᚖint(ctx, tmp)
+		arg2, err = ec.unmarshalOBoolean2ᚖbool(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
@@ -2744,7 +2744,7 @@ func (ec *executionContext) _Query_carriers(ctx context.Context, field graphql.C
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Carriers(rctx, args["limit"].(*int), args["search"].(*string), args["global"].(*int))
+		return ec.resolvers.Query().Carriers(rctx, args["limit"].(*int), args["search"].(*string), args["global"].(*bool))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -4600,7 +4600,7 @@ func (ec *executionContext) unmarshalInputNewCarrier(ctx context.Context, obj in
 			}
 		case "global":
 			var err error
-			it.Global, err = ec.unmarshalNInt2int(ctx, v)
+			it.Global, err = ec.unmarshalNBoolean2bool(ctx, v)
 			if err != nil {
 				return it, err
 			}

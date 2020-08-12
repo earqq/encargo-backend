@@ -102,7 +102,7 @@ input NewCarrier {
   name: String!
   username: String!
   password: String!
-  global: Int!
+  global: Boolean!
   message_token: String
   phone: String!
 }
@@ -127,7 +127,7 @@ input NewStore {
 }
 type Query {
     carrier(id: String): Carrier!
-    carriers(limit:Int,search:String, global:Int): [Carrier]!
+    carriers(limit:Int,search:String, global:Boolean): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
     store: Store
