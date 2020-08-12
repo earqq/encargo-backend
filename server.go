@@ -3,12 +3,13 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/earqq/encargo-backend/db"
 	"github.com/earqq/encargo-backend/auth"
+	"github.com/earqq/encargo-backend/db"
 	"github.com/earqq/encargo-backend/graph"
-	"os"
 	"github.com/earqq/encargo-backend/graph/generated"
 	"github.com/go-chi/chi"
 	"github.com/rs/cors"

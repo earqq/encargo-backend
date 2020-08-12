@@ -4,7 +4,7 @@ type Carrier {
     name: String!
     state_delivery: Int!
     username: String!
-    global: Int!
+    global: Boolean!
     token: String!
     password: String!
     current_order_id: String
@@ -47,12 +47,14 @@ type Order{
     id: ID!
     state: Int!
     price: Float!
+    delivery_price: Float
     date: String!
     delivery_date: String!
     departure_date: String!
     client_phone: String!
     client_name: String!
     arrival_location: Location
+    actual_location: Location
     detail: [OrderDetail]
     carrier: Carrier
     store: Store
@@ -75,18 +77,25 @@ input NewOrderDetail {
 input NewOrder {
     store_id:String
     price: Float!
+    delivery_price: Float
     store_ruc: String
     client_phone: String!
     client_name: String!
     arrival_location: AddLocation
     detail: [NewOrderDetail]!
 }
-
+input AddLocation {
+  latitude:String
+  longitude:String
+  address:String
+  reference:String
+}
 input UpdateOrder {
     carrier_id:String
     state:Int
     score: Int
     score_description: String
+    actual_location: AddLocation
 }
 input NewCarrier {
   store_id: String
@@ -101,15 +110,11 @@ input UpdateCarrier {
   name: String
   state_delivery: Int
   state : Boolean
+  global : Boolean
   password: String
   message_token: String
 }
-input AddLocation {
-  latitude:String
-  longitude:String
-  address:String
-  reference:String
-}
+
 
 input NewStore {
     name: String!
@@ -140,4 +145,6 @@ type Mutation {
     updateOrder(id:String!,input: UpdateOrder!): Order!
 }
 
-type Subscription {  carriersAvailable: [Carrier]!}
+type Subscription {
+    carriersAvailable: [Carrier]!
+}

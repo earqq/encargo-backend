@@ -6,6 +6,7 @@ package graph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/earqq/encargo-backend/auth"
@@ -113,6 +114,10 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, input model.Update
 		update = true
 		fields["name"] = input.Name
 	}
+	if input.Global != nil {
+		update = true
+		fields["name"] = input.Global
+	}
 	if input.Password != nil && *input.Password != "" {
 		update = true
 		password, _ := HashPassword(*input.Password)
@@ -176,6 +181,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 		"_id":              bson.ObjectId(id).Hex(),
 		"store_id":         store.ID,
 		"price":            input.Price,
+		"delivery_price":   input.DeliveryPrice,
 		"date":             t.Format("2006-01-02T15:04:0"),
 		"state":            0,
 		"client_phone":     input.ClientPhone,
@@ -260,6 +266,14 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	ordersDB.Find(bson.M{"_id": id}).One(&order)
 
 	return &order, nil
+}
+
+func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
+	panic(fmt.Errorf("not implemented"))
+}
+
+func (r *orderResolver) ActualLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *orderResolver) Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error) {
@@ -493,3 +507,13 @@ type mutationResolver struct{ *Resolver }
 type orderResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
+
+// !!! WARNING !!!
+// The code below was going to be deleted when updating resolvers. It has been copied here so you have
+// one last chance to move it out of harms way if you want. There are two reasons this happens:
+//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
+//    it when you're done.
+//  - You have helper methods in this file. Move them out to keep these resolver files clean.
+func (r *subscriptionResolver) Order(ctx context.Context) (<-chan *model.Order, error) {
+	panic(fmt.Errorf("not implemented"))
+}

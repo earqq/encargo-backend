@@ -36,6 +36,7 @@ type NewCarrier struct {
 type NewOrder struct {
 	StoreID         *string           `json:"store_id"`
 	Price           float64           `json:"price"`
+	DeliveryPrice   *float64          `json:"delivery_price"`
 	StoreRuc        *string           `json:"store_ruc"`
 	ClientPhone     string            `json:"client_phone"`
 	ClientName      string            `json:"client_name"`
@@ -63,13 +64,15 @@ type UpdateCarrier struct {
 	Name          *string `json:"name"`
 	StateDelivery *int    `json:"state_delivery"`
 	State         *bool   `json:"state"`
+	Global        *bool   `json:"global"`
 	Password      *string `json:"password"`
 	MessageToken  *string `json:"message_token"`
 }
 
 type UpdateOrder struct {
-	CarrierID        *string `json:"carrier_id"`
-	State            *int    `json:"state"`
-	Score            *int    `json:"score"`
-	ScoreDescription *string `json:"score_description"`
+	CarrierID        *string      `json:"carrier_id"`
+	State            *int         `json:"state"`
+	Score            *int         `json:"score"`
+	ScoreDescription *string      `json:"score_description"`
+	ActualLocation   *AddLocation `json:"actual_location"`
 }

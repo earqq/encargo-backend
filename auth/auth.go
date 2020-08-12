@@ -27,11 +27,11 @@ type contextKey struct {
 }
 
 func init() {
-	privateBytes, err := ioutil.ReadFile("/var/go/src/newencargo/private.rsa")
+	privateBytes, err := ioutil.ReadFile("/var/go/src/encargo/private.rsa")
 	if err != nil {
 		log.Fatal("No se puede leer llave privada")
 	}
-	publicBytes, err := ioutil.ReadFile("/var/go/src/newencargo/public.rsa.pub")
+	publicBytes, err := ioutil.ReadFile("/var/go/src/encargo/public.rsa.pub")
 	if err != nil {
 		log.Fatal("No se puedo leer llave pública")
 	}

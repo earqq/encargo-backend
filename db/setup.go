@@ -7,7 +7,7 @@ import (
 )
 var session *mgo.Session
 var db *mgo.Database
-const defaultDB = "newencargo"
+const defaultDB = "encargo"
 func ConnectDB() {
 	session, err := mgo.Dial("mongodb://localhost:27017,localhost:27018")
 	if err != nil {

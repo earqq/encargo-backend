@@ -43,6 +43,14 @@ autobind:
 # modelgen, the others will be allowed when binding to fields. Configure them to
 # your liking
 models:
+  Order:
+    fields:
+      actual_location:
+        resolver: true # force a resolver to be generated
+      exit_location:
+        resolver: true # force a resolver to be generated
+      arrival_location:
+        resolver: true # force a resolver to be generated
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.ID
