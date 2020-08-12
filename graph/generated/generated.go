@@ -112,7 +112,7 @@ type ComplexityRoot struct {
 	}
 
 	Query struct {
-		Carrier         func(childComplexity int) int
+		Carrier         func(childComplexity int, id *string) int
 		Carriers        func(childComplexity int, limit *int, search *string, global *int) int
 		GetCarrierStats func(childComplexity int) int
 		LoginCarrier    func(childComplexity int, username string, password string) int
@@ -156,7 +156,7 @@ type OrderResolver interface {
 	Store(ctx context.Context, obj *model.Order) (*model.Store, error)
 }
 type QueryResolver interface {
-	Carrier(ctx context.Context) (*model.Carrier, error)
+	Carrier(ctx context.Context, id *string) (*model.Carrier, error)
 	Carriers(ctx context.Context, limit *int, search *string, global *int) ([]*model.Carrier, error)
 	LoginCarrier(ctx context.Context, username string, password string) (*model.Carrier, error)
 	LoginStore(ctx context.Context, username string, password string) (*model.Store, error)
@@ -523,7 +523,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			break
 		}
 
-		return e.complexity.Query.Carrier(childComplexity), true
+		args, err := ec.field_Query_carrier_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Query.Carrier(childComplexity, args["id"].(*string)), true
 
 	case "Query.carriers":
 		if e.complexity.Query.Carriers == nil {
@@ -890,7 +895,7 @@ input NewStore {
     location: AddLocation
 }
 type Query {
-    carrier: Carrier!
+    carrier(id: String): Carrier!
     carriers(limit:Int,search:String, global:Int): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
@@ -1008,6 +1013,20 @@ func (ec *executionContext) field_Query___type_args(ctx context.Context, rawArgs
 		}
 	}
 	args["name"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Query_carrier_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 *string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
 	return args, nil
 }
 
@@ -2675,9 +2694,16 @@ func (ec *executionContext) _Query_carrier(ctx context.Context, field graphql.Co
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Query_carrier_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Query().Carrier(rctx)
+		return ec.resolvers.Query().Carrier(rctx, args["id"].(*string))
 	})
 	if err != nil {
 		ec.Error(ctx, err)

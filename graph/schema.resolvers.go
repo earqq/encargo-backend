@@ -294,17 +294,24 @@ func (r *orderResolver) Store(ctx context.Context, obj *model.Order) (*model.Sto
 	return &store, nil
 }
 
-func (r *queryResolver) Carrier(ctx context.Context) (*model.Carrier, error) {
+func (r *queryResolver) Carrier(ctx context.Context, id *string) (*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
-	if userContext == nil {
-		return &model.Carrier{}, errors.New("Acceso denegado")
-	}
-	var carrier model.Carrier
 	carriersDB := db.GetCollection("carriers")
-	if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-		return &model.Carrier{}, err
+	var carrier model.Carrier
+	if *id != "" {
+		if err := carriersDB.Find(bson.M{"_id": id}).Select(bson.M{"password": 0, "token": 0}).One(&carrier); err != nil {
+			return &model.Carrier{}, err
+		}
+		return &carrier, nil
+	} else {
+		if userContext != nil {
+			return &model.Carrier{}, errors.New("Acceso denegado")
+		}
+		if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+			return &model.Carrier{}, err
+		}
+		return &carrier, nil
 	}
-	return &carrier, nil
 }
 
 func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *int) ([]*model.Carrier, error) {
@@ -507,13 +514,3 @@ type mutationResolver struct{ *Resolver }
 type orderResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
 type subscriptionResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *subscriptionResolver) Order(ctx context.Context) (<-chan *model.Order, error) {
-	panic(fmt.Errorf("not implemented"))
-}

@@ -126,7 +126,7 @@ input NewStore {
     location: AddLocation
 }
 type Query {
-    carrier: Carrier!
+    carrier(id: String): Carrier!
     carriers(limit:Int,search:String, global:Int): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
