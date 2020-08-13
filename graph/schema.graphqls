@@ -146,4 +146,5 @@ type Mutation {
 
 type Subscription {
     carriersAvailable: [Carrier]!
+    order(order_id: String!): Order!
 }

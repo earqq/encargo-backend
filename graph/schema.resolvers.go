@@ -137,8 +137,8 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		return &model.Carrier{}, errors.New("no fields present for updating data")
 	}
 
-	carriers.Update(bson.M{"username": userContext.Username}, bson.M{"$set": fields})
-	carriers.Find(bson.M{"username": userContext.Username}).One(&carrier)
+	carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
+	carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	return &carrier, nil
 }
 
@@ -517,6 +517,21 @@ func (r *subscriptionResolver) CarriersAvailable(ctx context.Context) (<-chan []
 	}()
 	r.Lock()
 	Observers[id] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) Order(ctx context.Context, orderID string) (<-chan *model.Order, error) {
+	event := make(chan *model.Order, 1)
+	// Create new channel for request
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(OrderObserver, orderID)
+		r.Unlock()
+	}()
+	r.Lock()
+	OrderObserver[orderID] = event
 	r.Unlock()
 	return event, nil
 }
