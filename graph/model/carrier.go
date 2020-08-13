@@ -6,8 +6,7 @@ type Carrier struct {
 	Global         bool   `json:"global" bson:"global"`
 	Name           string
 	Birthdate      string
-	StateDelivery  int  `json:"state_delivery" bson:"state_delivery"`
-	State          bool `json:"state" bson:"state"`
+	StateDelivery  int `json:"state_delivery" bson:"state_delivery"`
 	Username       string
 	Password       string
 	Token          string `json:"token"`
