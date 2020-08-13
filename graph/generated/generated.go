@@ -84,7 +84,7 @@ type ComplexityRoot struct {
 		CreateStore   func(childComplexity int, input model.NewStore) int
 		DeleteCarrier func(childComplexity int, carrierID *string) int
 		DeleteStore   func(childComplexity int) int
-		UpdateCarrier func(childComplexity int, input model.UpdateCarrier) int
+		UpdateCarrier func(childComplexity int, id *string, input model.UpdateCarrier) int
 		UpdateOrder   func(childComplexity int, id string, input model.UpdateOrder) int
 	}
 
@@ -144,7 +144,7 @@ type ComplexityRoot struct {
 type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
-	UpdateCarrier(ctx context.Context, input model.UpdateCarrier) (*model.Carrier, error)
+	UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error)
 	DeleteCarrier(ctx context.Context, carrierID *string) (*model.Carrier, error)
 	DeleteStore(ctx context.Context) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
@@ -392,7 +392,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.Mutation.UpdateCarrier(childComplexity, args["input"].(model.UpdateCarrier)), true
+		return e.complexity.Mutation.UpdateCarrier(childComplexity, args["id"].(*string), args["input"].(model.UpdateCarrier)), true
 
 	case "Mutation.updateOrder":
 		if e.complexity.Mutation.UpdateOrder == nil {
@@ -920,7 +920,7 @@ type Query {
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
-    updateCarrier(input:UpdateCarrier!): Carrier!
+    updateCarrier(id:String, input:UpdateCarrier!): Carrier!
     deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
@@ -996,14 +996,22 @@ func (ec *executionContext) field_Mutation_deleteCarrier_args(ctx context.Contex
 func (ec *executionContext) field_Mutation_updateCarrier_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 model.UpdateCarrier
-	if tmp, ok := rawArgs["input"]; ok {
-		arg0, err = ec.unmarshalNUpdateCarrier2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrier(ctx, tmp)
+	var arg0 *string
+	if tmp, ok := rawArgs["id"]; ok {
+		arg0, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["input"] = arg0
+	args["id"] = arg0
+	var arg1 model.UpdateCarrier
+	if tmp, ok := rawArgs["input"]; ok {
+		arg1, err = ec.unmarshalNUpdateCarrier2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrier(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -1982,7 +1990,7 @@ func (ec *executionContext) _Mutation_updateCarrier(ctx context.Context, field g
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["input"].(model.UpdateCarrier))
+		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["id"].(*string), args["input"].(model.UpdateCarrier))
 	})
 	if err != nil {
 		ec.Error(ctx, err)

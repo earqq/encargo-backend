@@ -137,7 +137,7 @@ type Query {
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
-    updateCarrier(input:UpdateCarrier!): Carrier!
+    updateCarrier(id:String, input:UpdateCarrier!): Carrier!
     deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!

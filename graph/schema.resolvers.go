@@ -91,15 +91,21 @@ func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore
 	return &stores, nil
 }
 
-func (r *mutationResolver) UpdateCarrier(ctx context.Context, input model.UpdateCarrier) (*model.Carrier, error) {
+func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
 	if userContext == nil {
 		return &model.Carrier{}, errors.New("Acceso denegado")
 	}
-	var carrier model.Carrier
 	carriers := db.GetCollection("carriers")
-	if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-		return &model.Carrier{}, err
+	var carrier model.Carrier
+	if userContext.UserType == "carrier" {
+		if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+			return &model.Carrier{}, err
+		}
+	} else {
+		if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
+			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
+		}
 	}
 
 	var fields = bson.M{}
