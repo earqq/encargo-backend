@@ -12,7 +12,7 @@ type Order struct {
 	DepartureDate   string  `json:"departure_date" bson:"departure_date"`
 	State           int     `json:"state"`
 	Price           float64 `json:"price"`
-	DeliveryPrice   float64 `json:"delivery_price"`
+	DeliveryPrice   float64 `json:"delivery_price" bson:"delivery_price"`
 	Reference       string  `json:"reference"`
 	ClientPhone     string  `json:"client_phone" bson:"client_phone"`
 	ClientName      string  `json:"client_name" bson:"client_name"`
