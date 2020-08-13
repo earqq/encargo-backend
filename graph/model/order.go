@@ -37,5 +37,5 @@ type Location struct {
 	Longitude *string `json:"longitude"`
 	Address   *string `json:"address"`
 	Locality  *string `json:"locality"`
-	Name      *string `json:"name"`
+	Reference *string `json:"reference"`
 }

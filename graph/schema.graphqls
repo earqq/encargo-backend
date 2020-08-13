@@ -19,7 +19,7 @@ type Location  {
 	latitude:  String
 	longitude: String
 	address:   String
-    name: String
+    reference: String
 }
 
 type Store {

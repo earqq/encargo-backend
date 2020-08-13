@@ -75,7 +75,7 @@ type ComplexityRoot struct {
 		Address   func(childComplexity int) int
 		Latitude  func(childComplexity int) int
 		Longitude func(childComplexity int) int
-		Name      func(childComplexity int) int
+		Reference func(childComplexity int) int
 	}
 
 	Mutation struct {
@@ -320,12 +320,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Location.Longitude(childComplexity), true
 
-	case "Location.name":
-		if e.complexity.Location.Name == nil {
+	case "Location.reference":
+		if e.complexity.Location.Reference == nil {
 			break
 		}
 
-		return e.complexity.Location.Name(childComplexity), true
+		return e.complexity.Location.Reference(childComplexity), true
 
 	case "Mutation.createCarrier":
 		if e.complexity.Mutation.CreateCarrier == nil {
@@ -802,7 +802,7 @@ type Location  {
 	latitude:  String
 	longitude: String
 	address:   String
-    name: String
+    reference: String
 }
 
 type Store {
@@ -1853,7 +1853,7 @@ func (ec *executionContext) _Location_address(ctx context.Context, field graphql
 	return ec.marshalOString2ᚖstring(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Location_name(ctx context.Context, field graphql.CollectedField, obj *model.Location) (ret graphql.Marshaler) {
+func (ec *executionContext) _Location_reference(ctx context.Context, field graphql.CollectedField, obj *model.Location) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -1870,7 +1870,7 @@ func (ec *executionContext) _Location_name(ctx context.Context, field graphql.Co
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return obj.Name, nil
+		return obj.Reference, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5082,8 +5082,8 @@ func (ec *executionContext) _Location(ctx context.Context, sel ast.SelectionSet,
 			out.Values[i] = ec._Location_longitude(ctx, field, obj)
 		case "address":
 			out.Values[i] = ec._Location_address(ctx, field, obj)
-		case "name":
-			out.Values[i] = ec._Location_name(ctx, field, obj)
+		case "reference":
+			out.Values[i] = ec._Location_reference(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

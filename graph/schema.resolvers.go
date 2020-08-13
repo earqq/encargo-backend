@@ -6,7 +6,6 @@ package graph
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/earqq/encargo-backend/auth"
@@ -199,7 +198,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 	ExitLocation.Latitude = store.Location.Latitude
 	ExitLocation.Longitude = store.Location.Longitude
 	ExitLocation.Address = store.Location.Address
-	ExitLocation.Name = store.Location.Name
+	ExitLocation.Reference = store.Location.Reference
 
 	ordersBD.Insert(bson.M{
 		"_id":              bson.ObjectId(id).Hex(),
@@ -293,11 +292,11 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 }
 
 func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
-	panic(fmt.Errorf("not implemented"))
+	return &obj.ArrivalLocation, nil
 }
 
 func (r *orderResolver) ActualLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
-	panic(fmt.Errorf("not implemented"))
+	return &obj.ActualLocation, nil
 }
 
 func (r *orderResolver) Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error) {
