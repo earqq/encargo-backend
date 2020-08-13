@@ -128,9 +128,9 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		password, _ := HashPassword(*input.Password)
 		fields["password"] = password
 	}
-	if input.State != nil {
+	if input.StateDelivery != nil {
 		update = true
-		fields["state"] = input.State
+		fields["state_delivery"] = input.StateDelivery
 	}
 
 	if !update {
@@ -241,24 +241,31 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		update = true
 		ordersDB.Update(bson.M{"_id": id}, bson.M{"$set": fields})
 		ordersDB.Find(bson.M{"_id": id}).One(&order)
+		r.Lock()
+		CarrierOrdersObserver[*input.CarrierID] <- &order
+		r.Unlock()
 	}
 	if input.State != nil {
 		fields["state"] = *input.State
 		update = true
 
 		var carrierFields = bson.M{}
-		carrierFields["state_delivery"] = *input.State
 		if *input.State == 0 {
+			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 			fields["carrier_id"] = ""
+			r.Lock()
+			StoreOrdersObserver[order.StoreID] <- &order
+			r.Unlock()
 		}
 		if *input.State == 2 {
+			carrierFields["state_delivery"] = 2 //Cambiar estado de repartidor a llevando producto
 			fields["departure_date"] = t.Format("2006-01-02T15:04:05")
 		}
 		if *input.State == 3 {
 			fields["delivery_date"] = t.Format("2006-01-02T15:04:05")
-			carrierFields["state_delivery"] = "0"
+			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 		}
-		if order.CarrierID != "" {
+		if order.CarrierID != "" { // Actualizar campos del repartidor
 			carriersDB.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
 			var carriers []*model.Carrier
 			if err := carriersDB.Find(bson.M{"global": 1}).All(&carriers); err != nil {
@@ -268,6 +275,9 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			for _, observer := range Observers {
 				observer <- carriers
 			}
+			r.Unlock()
+			r.Lock()
+			CarrierOrdersObserver[order.CarrierID] <- &order
 			r.Unlock()
 		}
 	}
@@ -283,6 +293,7 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	if !update {
 		return &model.Order{}, errors.New("No hay ningun campo para actualizar")
 	}
+
 	fields["updated_at"] = time.Now().Local()
 	ordersDB.Update(bson.M{"_id": id}, bson.M{"$set": fields})
 
@@ -321,23 +332,16 @@ func (r *queryResolver) Carrier(ctx context.Context, id *string) (*model.Carrier
 	userContext := auth.ForContext(ctx)
 	carriersDB := db.GetCollection("carriers")
 	var carrier model.Carrier
-	if *id != "" {
-		if err := carriersDB.Find(bson.M{"_id": id}).Select(bson.M{"password": 0, "token": 0}).One(&carrier); err != nil {
-			return &model.Carrier{}, err
-		}
-		return &carrier, nil
-	} else {
-		if userContext != nil {
-			return &model.Carrier{}, errors.New("Acceso denegado")
-		}
-		if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-			return &model.Carrier{}, err
-		}
-		return &carrier, nil
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
 	}
+	if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+		return &model.Carrier{}, err
+	}
+	return &carrier, nil
 }
 
-func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *bool) ([]*model.Carrier, error) {
+func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *bool, stateDelivery *bool) ([]*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
 
 	var carriers []*model.Carrier
@@ -347,6 +351,9 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 	}
 	if global != nil {
 		fields["global"] = global
+	}
+	if stateDelivery != nil {
+		fields["state_delivery"] = stateDelivery
 	}
 	if userContext != nil && userContext.UserType == "store" {
 		fields["store_id"] = userContext.ID
@@ -521,17 +528,32 @@ func (r *subscriptionResolver) CarriersAvailable(ctx context.Context) (<-chan []
 	return event, nil
 }
 
-func (r *subscriptionResolver) Order(ctx context.Context, orderID string) (<-chan *model.Order, error) {
+func (r *subscriptionResolver) CarrierOrders(ctx context.Context, carrierID string) (<-chan *model.Order, error) {
 	event := make(chan *model.Order, 1)
 	// Create new channel for request
 	go func() {
 		<-ctx.Done()
 		r.Lock()
-		delete(OrderObserver, orderID)
+		delete(CarrierOrdersObserver, carrierID)
 		r.Unlock()
 	}()
 	r.Lock()
-	OrderObserver[orderID] = event
+	CarrierOrdersObserver[carrierID] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error) {
+	event := make(chan *model.Order, 1)
+	// Create new channel for request
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(StoreOrdersObserver, storeID)
+		r.Unlock()
+	}()
+	r.Lock()
+	StoreOrdersObserver[storeID] = event
 	r.Unlock()
 	return event, nil
 }

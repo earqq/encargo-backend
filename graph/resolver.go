@@ -11,7 +11,8 @@ import (
 )
 
 var Observers map[string]chan []*model.Carrier
-var OrderObserver map[string]chan *model.Order
+var CarrierOrdersObserver map[string]chan *model.Order
+var StoreOrdersObserver map[string]chan *model.Order
 
 type Resolver struct {
 	sync.Mutex
@@ -23,7 +24,8 @@ type Resolver struct {
 
 func init() {
 	Observers = map[string]chan []*model.Carrier{}
-	OrderObserver = map[string]chan *model.Order{}
+	CarrierOrdersObserver = map[string]chan *model.Order{}
+	StoreOrdersObserver = map[string]chan *model.Order{}
 }
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)

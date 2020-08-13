@@ -61,7 +61,6 @@ type NewStore struct {
 type UpdateCarrier struct {
 	Name          *string `json:"name"`
 	StateDelivery *int    `json:"state_delivery"`
-	State         *bool   `json:"state"`
 	Global        *bool   `json:"global"`
 	Password      *string `json:"password"`
 	MessageToken  *string `json:"message_token"`

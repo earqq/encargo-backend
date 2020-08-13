@@ -107,7 +107,6 @@ input NewCarrier {
 input UpdateCarrier {
   name: String
   state_delivery: Int
-  state : Boolean
   global : Boolean
   password: String
   message_token: String
@@ -125,7 +124,7 @@ input NewStore {
 }
 type Query {
     carrier(id: String): Carrier!
-    carriers(limit:Int,search:String, global:Boolean): [Carrier]!
+    carriers(limit:Int,search:String, global:Boolean, state_delivery: Boolean): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
     store: Store
@@ -146,5 +145,6 @@ type Mutation {
 
 type Subscription {
     carriersAvailable: [Carrier]!
-    order(order_id: String!): Order!
+    carrierOrders(carrier_id: String!): Order!
+    storeOrders(store_id: String!): Order!
 }
