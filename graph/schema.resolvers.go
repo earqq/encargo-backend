@@ -341,7 +341,7 @@ func (r *queryResolver) Carrier(ctx context.Context, id *string) (*model.Carrier
 	return &carrier, nil
 }
 
-func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *bool, stateDelivery *bool) ([]*model.Carrier, error) {
+func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *bool, stateDelivery *int) ([]*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
 
 	var carriers []*model.Carrier

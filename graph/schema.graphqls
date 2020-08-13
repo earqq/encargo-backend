@@ -124,7 +124,7 @@ input NewStore {
 }
 type Query {
     carrier(id: String): Carrier!
-    carriers(limit:Int,search:String, global:Boolean, state_delivery: Boolean): [Carrier]!
+    carriers(limit:Int,search:String, global:Boolean, state_delivery: Int): [Carrier]!
     loginCarrier(username:String!,password:String!): Carrier!
     loginStore(username:String!,password:String!): Store!
     store: Store
