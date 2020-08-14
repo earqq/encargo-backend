@@ -91,10 +91,10 @@ func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore
 }
 
 func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error) {
-	userContext := auth.ForContext(ctx)
-	if userContext == nil {
-		return &model.Carrier{}, errors.New("Acceso denegado")
-	}
+	// userContext := auth.ForContext(ctx)
+	// if userContext == nil {
+	// 	return &model.Carrier{}, errors.New("Acceso denegado")
+	// }
 	carriers := db.GetCollection("carriers")
 	var carrier model.Carrier
 	// if userContext.UserType == "carrier" {
