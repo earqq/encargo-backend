@@ -136,7 +136,15 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	if !update {
 		return &model.Carrier{}, errors.New("no fields present for updating data")
 	}
-
+	var carriersSubs []*model.Carrier
+	if err := carriers.Find(bson.M{}).All(&carriersSubs); err != nil {
+		return &model.Carrier{}, errors.New("No hay carriersSubs")
+	}
+	r.Lock()
+	for _, observer := range Observers {
+		observer <- carriersSubs
+	}
+	r.Unlock()
 	carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
 	carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	return &carrier, nil
