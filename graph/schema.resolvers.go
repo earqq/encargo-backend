@@ -97,15 +97,18 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	}
 	carriers := db.GetCollection("carriers")
 	var carrier model.Carrier
-	if userContext.UserType == "carrier" {
-		if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-			return &model.Carrier{}, err
-		}
-	} else {
-		if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
-			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
-		}
+	// if userContext.UserType == "carrier" {
+	// 	if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+	// 		return &model.Carrier{}, err
+	// 	}
+	// } else {
+	if err := carriers.Find(bson.M{"_id": id}).One(&carrier); err != nil {
+		return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
 	}
+	// if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
+	// 	return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
+	// }
+	// }
 
 	var fields = bson.M{}
 
