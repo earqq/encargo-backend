@@ -4,8 +4,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/earqq/encargo-backend/auth"
 	"github.com/earqq/encargo-backend/db"
@@ -32,7 +34,9 @@ func main() {
 		ExposedHeaders:   []string{"Link"},
 	}).Handler)
 	router.Use(auth.Middleware())
+
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: &graph.Resolver{}}))
+	srv.AddTransport(transport.Websocket{KeepAlivePingInterval: 10 * time.Second})
 	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	router.Handle("/query", srv)
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
