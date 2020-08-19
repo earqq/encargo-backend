@@ -9,7 +9,6 @@ import (
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/earqq/encargo-backend/auth"
 	"github.com/earqq/encargo-backend/db"
 	"github.com/earqq/encargo-backend/graph"
 	"github.com/earqq/encargo-backend/graph/generated"
@@ -38,7 +37,7 @@ func main() {
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 	}).Handler)
-	router.Use(auth.Middleware())
+	// router.Use(auth.Middleware())
 
 	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: &graph.Resolver{}}))
 	srv.AddTransport(transport.Websocket{KeepAlivePingInterval: 10 * time.Second})
