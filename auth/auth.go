@@ -7,12 +7,14 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 
 	jwt "github.com/dgrijalva/jwt-go"
 	"github.com/dgrijalva/jwt-go/request"
 	"github.com/earqq/encargo-backend/db"
 	"github.com/earqq/encargo-backend/graph/model"
+	"github.com/joho/godotenv"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -27,11 +29,15 @@ type contextKey struct {
 }
 
 func init() {
-	privateBytes, err := ioutil.ReadFile("/var/go/src/encargo/private.rsa")
+	err := godotenv.Load("./.env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	privateBytes, err := ioutil.ReadFile(os.Getenv("PROJECT_PATH") + "/private.rsa")
 	if err != nil {
 		log.Fatal("No se puede leer llave privada")
 	}
-	publicBytes, err := ioutil.ReadFile("/var/go/src/encargo/public.rsa.pub")
+	publicBytes, err := ioutil.ReadFile(os.Getenv("PROJECT_PATH") + "/public.rsa.pub")
 	if err != nil {
 		log.Fatal("No se puedo leer llave pública")
 	}
@@ -44,6 +50,7 @@ func init() {
 		log.Fatal("No se pudo parsear llave pública")
 	}
 }
+
 // Generar un nuevo token
 func GenerateJWT(username string, userType string) string {
 	claims := model.Claim{
@@ -72,7 +79,7 @@ func Middleware() func(http.Handler) http.Handler {
 				userTypeFromToken := UserTypeFromToken(tokenString)
 				// Loguear al usuario dependiendo si es usuario tienda o de repartidor
 				ctx := context.WithValue(r.Context(), userCtxKey, &carrier)
-				if(userTypeFromToken == "carrier"){
+				if userTypeFromToken == "carrier" {
 					carriersDB := db.GetCollection("carriers")
 					_ = carriersDB.Find(bson.M{"username": usernameFromToken}).Select(bson.M{"password": 0}).One(&carrier)
 					var user = model.User{
@@ -81,7 +88,7 @@ func Middleware() func(http.Handler) http.Handler {
 						usernameFromToken,
 					}
 					ctx = context.WithValue(r.Context(), userCtxKey, &user)
-				}else {
+				} else {
 					storeDB := db.GetCollection("stores")
 					_ = storeDB.Find(bson.M{"username": usernameFromToken}).Select(bson.M{"password": 0}).One(&store)
 					var user = model.User{
@@ -100,6 +107,7 @@ func Middleware() func(http.Handler) http.Handler {
 		})
 	}
 }
+
 // Obtener token en formato string desde el header
 func TokenFromHttpRequest(r *http.Request) string {
 	reqToken := r.Header.Get("Authorization")
@@ -115,6 +123,7 @@ func JwtDecode(token string) (*jwt.Token, error) {
 		return publicKey, nil
 	})
 }
+
 // Obtener tipo de usuario
 func UserTypeFromToken(tokenString string) string {
 	token, err := JwtDecode(tokenString)
@@ -131,6 +140,7 @@ func UserTypeFromToken(tokenString string) string {
 		return "3"
 	}
 }
+
 //Obtener username de usuario para login
 func UsernameFromToken(tokenString string) string {
 
@@ -152,6 +162,7 @@ func ForContext(ctx context.Context) *model.User {
 	raw, _ := ctx.Value(userCtxKey).(*model.User)
 	return raw
 }
+
 // Obtener usuario logueado
 func GetAuthFromContext(ctx context.Context) *model.User {
 	return ForContext(ctx)

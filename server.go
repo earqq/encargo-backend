@@ -14,12 +14,17 @@ import (
 	"github.com/earqq/encargo-backend/graph"
 	"github.com/earqq/encargo-backend/graph/generated"
 	"github.com/go-chi/chi"
+	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
 
 const defaultPort = "8096"
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
