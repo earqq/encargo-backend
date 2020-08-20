@@ -15,7 +15,7 @@ var db *mgo.Database
 const defaultDB = "encargo"
 
 func ConnectDB() {
-	err := godotenv.Load("")
+	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file db")
 	}

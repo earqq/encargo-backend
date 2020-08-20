@@ -29,7 +29,7 @@ type contextKey struct {
 }
 
 func init() {
-	err := godotenv.Load("")
+	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file auth")
 	}
