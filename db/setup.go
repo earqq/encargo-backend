@@ -15,9 +15,9 @@ var db *mgo.Database
 const defaultDB = "encargo"
 
 func ConnectDB() {
-	err := godotenv.Load("./.env")
+	err := godotenv.Load("")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file db")
 	}
 	session, err := mgo.Dial("mongodb://localhost:27017,localhost:27018")
 	if err != nil {

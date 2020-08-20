@@ -21,9 +21,9 @@ import (
 const defaultPort = "8096"
 
 func main() {
-	err := godotenv.Load(".env")
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error main loading .env file")
 	}
 	port := os.Getenv("PORT")
 	if port == "" {
