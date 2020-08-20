@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/99designs/gqlgen/graphql/handler/extension"
 	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/earqq/encargo-backend/auth"
@@ -51,6 +52,7 @@ func main() {
 			},
 		},
 	})
+	srv.Use(extension.Introspection{})
 	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	router.Handle("/query", c.Handler(srv))
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
