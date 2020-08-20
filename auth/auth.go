@@ -31,7 +31,7 @@ type contextKey struct {
 func init() {
 	err := godotenv.Load("")
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Fatal("Error loading .env file auth")
 	}
 	privateBytes, err := ioutil.ReadFile(os.Getenv("PROJECT_PATH") + "/private.rsa")
 	if err != nil {
