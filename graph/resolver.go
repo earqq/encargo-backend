@@ -5,10 +5,22 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/earqq/encargo-backend/db"
+	"github.com/earqq/encargo-backend/graph/generated"
 	"github.com/earqq/encargo-backend/graph/model"
 	"github.com/globalsign/mgo"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func New() generated.Config {
+	return generated.Config{
+		Resolvers: &Resolver{
+			carriers: db.GetCollection("carriers"),
+			orders:   db.GetCollection("orders"),
+			stores:   db.GetCollection("stores"),
+		},
+	}
+}
 
 var Observers map[string]chan []*model.Carrier
 var CarrierOrdersObserver map[string]chan *model.Order

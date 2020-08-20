@@ -6,6 +6,8 @@ require (
 	github.com/99designs/gqlgen v0.12.2
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8
+	github.com/go-chi/chi v3.3.2+incompatible
+	github.com/gorilla/websocket v1.4.2
 	github.com/joho/godotenv v1.3.0
 	github.com/vektah/gqlparser/v2 v2.0.1
 	golang.org/x/crypto v0.0.0-20191011191535-87dc89f01550

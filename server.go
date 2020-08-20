@@ -14,6 +14,7 @@ import (
 	"github.com/earqq/encargo-backend/graph"
 	"github.com/earqq/encargo-backend/graph/generated"
 	"github.com/go-chi/chi"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	"github.com/rs/cors"
 )
@@ -31,19 +32,27 @@ func main() {
 	}
 	db.ConnectDB()
 	router := chi.NewRouter()
-	router.Use(cors.New(cors.Options{
+	router.Use(auth.Middleware())
+	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
 		AllowCredentials: true,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
-	}).Handler)
-	router.Use(auth.Middleware())
+	})
 
-	srv := handler.NewDefaultServer(generated.NewExecutableSchema(generated.Config{Resolvers: &graph.Resolver{}}))
-	srv.AddTransport(transport.Websocket{KeepAlivePingInterval: 10 * time.Second})
+	srv := handler.New(generated.NewExecutableSchema(graph.New()))
+	srv.AddTransport(transport.POST{})
+	srv.AddTransport(transport.Websocket{
+		KeepAlivePingInterval: 10 * time.Second,
+		Upgrader: websocket.Upgrader{
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		},
+	})
 	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	router.Handle("/query", srv)
+	router.Handle("/query", c.Handler(srv))
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, router))
 }
