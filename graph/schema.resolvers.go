@@ -272,6 +272,9 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			// StoreCarriersObserver[order.StoreID] <- &order
 			// r.Unlock()
 		}
+		r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
+		r.orders.Find(bson.M{"_id": id}).One(&order)
+
 		r.Lock()
 		if r.storeOrdersObserver[order.StoreID] != nil {
 			r.storeOrdersObserver[order.StoreID] <- &order
