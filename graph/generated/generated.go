@@ -138,6 +138,7 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
+		Order         func(childComplexity int, orderID string) int
 		StoreCarriers func(childComplexity int, storeID string) int
 		StoreOrders   func(childComplexity int, storeID string) int
 	}
@@ -175,6 +176,7 @@ type QueryResolver interface {
 type SubscriptionResolver interface {
 	StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Carrier, error)
 	StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error)
+	Order(ctx context.Context, orderID string) (<-chan *model.Order, error)
 }
 
 type executableSchema struct {
@@ -698,6 +700,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Store.Username(childComplexity), true
 
+	case "Subscription.order":
+		if e.complexity.Subscription.Order == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_order_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.Order(childComplexity, args["order_id"].(string)), true
+
 	case "Subscription.storeCarriers":
 		if e.complexity.Subscription.StoreCarriers == nil {
 			break
@@ -899,7 +913,7 @@ input UpdateOrder {
     state:Int
     score: Int
     score_description: String
-    
+
 }
 input NewCarrier {
   store_id: String
@@ -953,6 +967,7 @@ type Mutation {
 type Subscription {
     storeCarriers(store_id: String!): Carrier!
     storeOrders(store_id: String!): Order!
+    order(order_id: String!): Order!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -1240,6 +1255,21 @@ func (ec *executionContext) field_Query_stores_args(ctx context.Context, rawArgs
 		}
 	}
 	args["search"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_order_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["order_id"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("order_id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["order_id"] = arg0
 	return args, nil
 }
 
@@ -3649,6 +3679,57 @@ func (ec *executionContext) _Subscription_storeOrders(ctx context.Context, field
 	}
 }
 
+func (ec *executionContext) _Subscription_order(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Subscription",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Subscription_order_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().Order(rctx, args["order_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func() graphql.Marshaler {
+		res, ok := <-resTmp.(<-chan *model.Order)
+		if !ok {
+			return nil
+		}
+		return graphql.WriterFunc(func(w io.Writer) {
+			w.Write([]byte{'{'})
+			graphql.MarshalString(field.Alias).MarshalGQL(w)
+			w.Write([]byte{':'})
+			ec.marshalNOrder2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res).MarshalGQL(w)
+			w.Write([]byte{'}'})
+		})
+	}
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -5745,6 +5826,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_storeCarriers(ctx, fields[0])
 	case "storeOrders":
 		return ec._Subscription_storeOrders(ctx, fields[0])
+	case "order":
+		return ec._Subscription_order(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}

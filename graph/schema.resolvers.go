@@ -280,6 +280,11 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			r.storeOrdersObserver[order.StoreID] <- &order
 		}
 		r.Unlock()
+		r.Lock()
+		if r.orderObserver[order.ID] != nil {
+			r.orderObserver[order.ID] <- &order
+		}
+		r.Unlock()
 	}
 	if input.Score != nil {
 		update = true
@@ -532,6 +537,21 @@ func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) 
 	}()
 	r.Lock()
 	r.storeOrdersObserver[storeID] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) Order(ctx context.Context, orderID string) (<-chan *model.Order, error) {
+	event := make(chan *model.Order, 1)
+	// Create new channel for request
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(r.orderObserver, orderID)
+		r.Unlock()
+	}()
+	r.Lock()
+	r.orderObserver[orderID] = event
 	r.Unlock()
 	return event, nil
 }

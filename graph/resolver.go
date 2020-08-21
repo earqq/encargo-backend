@@ -20,6 +20,7 @@ func New() generated.Config {
 			stores:                db.GetCollection("stores"),
 			storeCarriersObserver: map[string]chan *model.Carrier{},
 			storeOrdersObserver:   map[string]chan *model.Order{},
+			orderObserver:         map[string]chan *model.Order{},
 		},
 	}
 }
@@ -31,6 +32,7 @@ type Resolver struct {
 	stores                *mgo.Collection
 	storeCarriersObserver map[string]chan *model.Carrier
 	storeOrdersObserver   map[string]chan *model.Order
+	orderObserver         map[string]chan *model.Order
 }
 
 func HashPassword(password string) (string, error) {
