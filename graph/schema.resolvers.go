@@ -6,6 +6,7 @@ package graph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/earqq/encargo-backend/auth"
@@ -84,24 +85,24 @@ func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore
 }
 
 func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error) {
-	// userContext := auth.ForContext(ctx)
-	// if userContext == nil {
-	// 	return &model.Carrier{}, errors.New("Acceso denegado")
-	// }
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
+	}
 	carriers := db.GetCollection("carriers")
 	var carrier model.Carrier
-	// if userContext.UserType == "carrier" {
-	// 	if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-	// 		return &model.Carrier{}, err
-	// 	}
-	// } else {
-	if err := carriers.Find(bson.M{"_id": id}).One(&carrier); err != nil {
-		return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
+	if userContext.UserType == "carrier" {
+		if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+			return &model.Carrier{}, err
+		}
+	} else {
+		if err := carriers.Find(bson.M{"_id": id}).One(&carrier); err != nil {
+			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
+		}
+		if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
+			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
+		}
 	}
-	// if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
-	// 	return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
-	// }
-	// }
 
 	var fields = bson.M{}
 
@@ -136,11 +137,6 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	if err := carriers.Find(bson.M{}).All(&carriersSubs); err != nil {
 		return &model.Carrier{}, errors.New("No hay carriersSubs")
 	}
-	r.Lock()
-	for _, observer := range Observers {
-		observer <- carriersSubs
-	}
-	r.Unlock()
 	carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
 	carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	return &carrier, nil
@@ -226,9 +222,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 
 func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input model.UpdateOrder) (*model.Order, error) {
 	var order model.Order
-	var carriersDB = db.GetCollection("carriers")
-	var ordersDB = db.GetCollection("orders")
-	if err := ordersDB.Find(bson.M{"_id": id}).One(&order); err != nil {
+	if err := r.orders.Find(bson.M{"_id": id}).One(&order); err != nil {
 		return &model.Order{}, errors.New("No existe order")
 	}
 
@@ -238,16 +232,16 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	update := false
 	if input.CarrierID != nil {
 		var carrier model.Carrier
-		if err := carriersDB.Find(bson.M{"_id": input.CarrierID}).One(&carrier); err != nil {
+		if err := r.carriers.Find(bson.M{"_id": input.CarrierID}).One(&carrier); err != nil {
 			return &model.Order{}, errors.New("No existe carrier")
 		}
 		fields["carrier_id"] = *input.CarrierID
 		update = true
-		ordersDB.Update(bson.M{"_id": id}, bson.M{"$set": fields})
-		ordersDB.Find(bson.M{"_id": id}).One(&order)
-		r.Lock()
-		CarrierOrdersObserver[*input.CarrierID] <- &order
-		r.Unlock()
+		r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
+		r.orders.Find(bson.M{"_id": id}).One(&order)
+		// r.Lock()
+		// StoreCarriersObserver[order.StoreID] <- carrier
+		// // r.Unlock()
 	}
 	if input.State != nil {
 		fields["state"] = *input.State
@@ -257,9 +251,6 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		if *input.State == 0 {
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 			fields["carrier_id"] = ""
-			r.Lock()
-			StoreOrdersObserver[order.StoreID] <- &order
-			r.Unlock()
 		}
 		if *input.State == 2 {
 			carrierFields["state_delivery"] = 2 //Cambiar estado de repartidor a llevando producto
@@ -270,20 +261,20 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 		}
 		if order.CarrierID != "" { // Actualizar campos del repartidor
-			carriersDB.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
+			r.carriers.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
 			var carriers []*model.Carrier
-			if err := carriersDB.Find(bson.M{"global": 1}).All(&carriers); err != nil {
+			if err := r.carriers.Find(bson.M{"global": 1}).All(&carriers); err != nil {
 				return &model.Order{}, errors.New("No hay carriers")
 			}
-			r.Lock()
-			for _, observer := range Observers {
-				observer <- carriers
-			}
-			r.Unlock()
-			r.Lock()
-			CarrierOrdersObserver[order.CarrierID] <- &order
-			r.Unlock()
+			// r.Lock()
+			// StoreCarriersObserver[order.StoreID] <- &order
+			// r.Unlock()
 		}
+		r.Lock()
+		if r.storeOrdersObserver[order.StoreID] != nil {
+			r.storeOrdersObserver[order.StoreID] <- &order
+		}
+		r.Unlock()
 	}
 	if input.Score != nil {
 		update = true
@@ -297,11 +288,9 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	if !update {
 		return &model.Order{}, errors.New("No hay ningun campo para actualizar")
 	}
-
 	fields["updated_at"] = time.Now().Local()
-	ordersDB.Update(bson.M{"_id": id}, bson.M{"$set": fields})
-
-	ordersDB.Find(bson.M{"_id": id}).One(&order)
+	r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
+	r.orders.Find(bson.M{"_id": id}).One(&order)
 
 	return &order, nil
 }
@@ -516,35 +505,8 @@ func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) (
 	return orders, nil
 }
 
-func (r *subscriptionResolver) CarriersAvailable(ctx context.Context) (<-chan []*model.Carrier, error) {
-	id := RandStringRunes(8)
-	event := make(chan []*model.Carrier, 1)
-
-	go func() {
-		<-ctx.Done()
-		r.Lock()
-		delete(Observers, id)
-		r.Unlock()
-	}()
-	r.Lock()
-	Observers[id] = event
-	r.Unlock()
-	return event, nil
-}
-
-func (r *subscriptionResolver) CarrierOrders(ctx context.Context, carrierID string) (<-chan *model.Order, error) {
-	event := make(chan *model.Order, 1)
-	// Create new channel for request
-	go func() {
-		<-ctx.Done()
-		r.Lock()
-		delete(CarrierOrdersObserver, carrierID)
-		r.Unlock()
-	}()
-	r.Lock()
-	CarrierOrdersObserver[carrierID] = event
-	r.Unlock()
-	return event, nil
+func (r *subscriptionResolver) StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Order, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error) {
@@ -553,11 +515,11 @@ func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) 
 	go func() {
 		<-ctx.Done()
 		r.Lock()
-		delete(StoreOrdersObserver, storeID)
+		delete(r.storeOrdersObserver, storeID)
 		r.Unlock()
 	}()
 	r.Lock()
-	StoreOrdersObserver[storeID] = event
+	r.storeOrdersObserver[storeID] = event
 	r.Unlock()
 	return event, nil
 }

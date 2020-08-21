@@ -15,30 +15,24 @@ import (
 func New() generated.Config {
 	return generated.Config{
 		Resolvers: &Resolver{
-			carriers: db.GetCollection("carriers"),
-			orders:   db.GetCollection("orders"),
-			stores:   db.GetCollection("stores"),
+			carriers:              db.GetCollection("carriers"),
+			orders:                db.GetCollection("orders"),
+			stores:                db.GetCollection("stores"),
+			storeCarriersObserver: map[string]chan *model.Carrier{},
+			storeOrdersObserver:   map[string]chan *model.Order{},
 		},
 	}
 }
 
-var Observers map[string]chan []*model.Carrier
-var CarrierOrdersObserver map[string]chan *model.Order
-var StoreOrdersObserver map[string]chan *model.Order
-
 type Resolver struct {
 	sync.Mutex
-	carriers  *mgo.Collection
-	orders    *mgo.Collection
-	stores    *mgo.Collection
-	observers map[string]chan []*model.Carrier
+	carriers              *mgo.Collection
+	orders                *mgo.Collection
+	stores                *mgo.Collection
+	storeCarriersObserver map[string]chan *model.Carrier
+	storeOrdersObserver   map[string]chan *model.Order
 }
 
-func init() {
-	Observers = map[string]chan []*model.Carrier{}
-	CarrierOrdersObserver = map[string]chan *model.Order{}
-	StoreOrdersObserver = map[string]chan *model.Order{}
-}
 func HashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
