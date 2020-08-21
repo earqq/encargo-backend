@@ -59,17 +59,17 @@ type NewStore struct {
 }
 
 type UpdateCarrier struct {
-	Name          *string `json:"name"`
-	StateDelivery *int    `json:"state_delivery"`
-	Global        *bool   `json:"global"`
-	Password      *string `json:"password"`
-	MessageToken  *string `json:"message_token"`
+	Name           *string      `json:"name"`
+	StateDelivery  *int         `json:"state_delivery"`
+	Global         *bool        `json:"global"`
+	Password       *string      `json:"password"`
+	MessageToken   *string      `json:"message_token"`
+	ActualLocation *AddLocation `json:"actual_location"`
 }
 
 type UpdateOrder struct {
-	CarrierID        *string      `json:"carrier_id"`
-	State            *int         `json:"state"`
-	Score            *int         `json:"score"`
-	ScoreDescription *string      `json:"score_description"`
-	ActualLocation   *AddLocation `json:"actual_location"`
+	CarrierID        *string `json:"carrier_id"`
+	State            *int    `json:"state"`
+	Score            *int    `json:"score"`
+	ScoreDescription *string `json:"score_description"`
 }

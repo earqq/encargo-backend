@@ -45,11 +45,13 @@ autobind:
 models:
   Order:
     fields:
-      actual_location:
+      arrival_location:
         resolver: true # force a resolver to be generated
       exit_location:
         resolver: true # force a resolver to be generated
-      arrival_location:
+  Carrier:
+    fields:
+      actual_location:
         resolver: true # force a resolver to be generated
   ID:
     model:

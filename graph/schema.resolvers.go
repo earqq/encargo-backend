@@ -6,7 +6,6 @@ package graph
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/earqq/encargo-backend/auth"
@@ -15,6 +14,10 @@ import (
 	"github.com/earqq/encargo-backend/graph/model"
 	"gopkg.in/mgo.v2/bson"
 )
+
+func (r *carrierResolver) ActualLocation(ctx context.Context, obj *model.Carrier) (*model.Location, error) {
+	return &obj.ActualLocation, nil
+}
 
 func (r *mutationResolver) CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error) {
 	carriers := db.GetCollection("carriers")
@@ -89,17 +92,13 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	if userContext == nil {
 		return &model.Carrier{}, errors.New("Acceso denegado")
 	}
-	carriers := db.GetCollection("carriers")
 	var carrier model.Carrier
 	if userContext.UserType == "carrier" {
-		if err := carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+		if err := r.carriers.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
 			return &model.Carrier{}, err
 		}
 	} else {
-		if err := carriers.Find(bson.M{"_id": id}).One(&carrier); err != nil {
-			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
-		}
-		if err := carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
+		if err := r.carriers.Find(bson.M{"_id": id, "store_id": userContext.ID}).One(&carrier); err != nil {
 			return &model.Carrier{}, errors.New("No existe repartidor en la tienda")
 		}
 	}
@@ -110,7 +109,6 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	if input.MessageToken != nil && *input.MessageToken != "" {
 		fields["message_token"] = input.MessageToken
 		update = true
-
 	}
 	if input.Name != nil && *input.Name != "" {
 		update = true
@@ -129,16 +127,20 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		update = true
 		fields["state_delivery"] = input.StateDelivery
 	}
-
+	if input.ActualLocation != nil {
+		update = true
+		fields["actual_location"] = input.ActualLocation
+	}
 	if !update {
-		return &model.Carrier{}, errors.New("no fields present for updating data")
+		return &model.Carrier{}, errors.New("No hay campos por actualizar")
 	}
-	var carriersSubs []*model.Carrier
-	if err := carriers.Find(bson.M{}).All(&carriersSubs); err != nil {
-		return &model.Carrier{}, errors.New("No hay carriersSubs")
+	r.carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
+	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
+	r.Lock()
+	if r.storeCarriersObserver[carrier.StoreID] != nil {
+		r.storeCarriersObserver[carrier.StoreID] <- &carrier
 	}
-	carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
-	carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
+	r.Unlock()
 	return &carrier, nil
 }
 
@@ -297,10 +299,6 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 
 func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
 	return &obj.ArrivalLocation, nil
-}
-
-func (r *orderResolver) ActualLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
-	return &obj.ActualLocation, nil
 }
 
 func (r *orderResolver) Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error) {
@@ -505,8 +503,19 @@ func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) (
 	return orders, nil
 }
 
-func (r *subscriptionResolver) StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Order, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *subscriptionResolver) StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Carrier, error) {
+	event := make(chan *model.Carrier, 1)
+	// Create new channel for request
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(r.storeCarriersObserver, storeID)
+		r.Unlock()
+	}()
+	r.Lock()
+	r.storeCarriersObserver[storeID] = event
+	r.Unlock()
+	return event, nil
 }
 
 func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error) {
@@ -524,6 +533,9 @@ func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) 
 	return event, nil
 }
 
+// Carrier returns generated.CarrierResolver implementation.
+func (r *Resolver) Carrier() generated.CarrierResolver { return &carrierResolver{r} }
+
 // Mutation returns generated.MutationResolver implementation.
 func (r *Resolver) Mutation() generated.MutationResolver { return &mutationResolver{r} }
 
@@ -536,6 +548,7 @@ func (r *Resolver) Query() generated.QueryResolver { return &queryResolver{r} }
 // Subscription returns generated.SubscriptionResolver implementation.
 func (r *Resolver) Subscription() generated.SubscriptionResolver { return &subscriptionResolver{r} }
 
+type carrierResolver struct{ *Resolver }
 type mutationResolver struct{ *Resolver }
 type orderResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }

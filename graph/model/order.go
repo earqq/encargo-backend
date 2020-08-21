@@ -20,7 +20,6 @@ type Order struct {
 	Experience      Experience
 	ArrivalLocation Location `json:"arrival_location" bson:"arrival_location"`
 	ExitLocation    Location `json:"exit_location" bson:"exit_location"`
-	ActualLocation  Location `json:"actual_location" bson:"actual_location"`
 }
 type OrderDetail struct {
 	Amount      float64 `json:"amount" bson:"amount"`

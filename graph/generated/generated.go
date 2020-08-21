@@ -36,6 +36,7 @@ type Config struct {
 }
 
 type ResolverRoot interface {
+	Carrier() CarrierResolver
 	Mutation() MutationResolver
 	Order() OrderResolver
 	Query() QueryResolver
@@ -47,6 +48,7 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Carrier struct {
+		ActualLocation func(childComplexity int) int
 		CurrentOrderID func(childComplexity int) int
 		Global         func(childComplexity int) int
 		ID             func(childComplexity int) int
@@ -89,7 +91,6 @@ type ComplexityRoot struct {
 	}
 
 	Order struct {
-		ActualLocation  func(childComplexity int) int
 		ArrivalLocation func(childComplexity int) int
 		Carrier         func(childComplexity int) int
 		ClientName      func(childComplexity int) int
@@ -142,6 +143,9 @@ type ComplexityRoot struct {
 	}
 }
 
+type CarrierResolver interface {
+	ActualLocation(ctx context.Context, obj *model.Carrier) (*model.Location, error)
+}
 type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
@@ -153,7 +157,6 @@ type MutationResolver interface {
 }
 type OrderResolver interface {
 	ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error)
-	ActualLocation(ctx context.Context, obj *model.Order) (*model.Location, error)
 
 	Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error)
 	Store(ctx context.Context, obj *model.Order) (*model.Store, error)
@@ -170,7 +173,7 @@ type QueryResolver interface {
 	Orders(ctx context.Context, input model.FilterOptions) ([]*model.Order, error)
 }
 type SubscriptionResolver interface {
-	StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Order, error)
+	StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Carrier, error)
 	StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error)
 }
 
@@ -188,6 +191,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 	ec := executionContext{nil, e}
 	_ = ec
 	switch typeName + "." + field {
+
+	case "Carrier.actual_location":
+		if e.complexity.Carrier.ActualLocation == nil {
+			break
+		}
+
+		return e.complexity.Carrier.ActualLocation(childComplexity), true
 
 	case "Carrier.current_order_id":
 		if e.complexity.Carrier.CurrentOrderID == nil {
@@ -407,13 +417,6 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateOrder(childComplexity, args["id"].(string), args["input"].(model.UpdateOrder)), true
-
-	case "Order.actual_location":
-		if e.complexity.Order.ActualLocation == nil {
-			break
-		}
-
-		return e.complexity.Order.ActualLocation(childComplexity), true
 
 	case "Order.arrival_location":
 		if e.complexity.Order.ArrivalLocation == nil {
@@ -806,6 +809,7 @@ var sources = []*ast.Source{
     name: String!
     state_delivery: Int!
     username: String!
+    actual_location: Location
     global: Boolean!
     token: String!
     password: String!
@@ -856,7 +860,7 @@ type Order{
     client_phone: String!
     client_name: String!
     arrival_location: Location
-    actual_location: Location
+
     detail: [OrderDetail]
     carrier: Carrier
     store: Store
@@ -895,7 +899,7 @@ input UpdateOrder {
     state:Int
     score: Int
     score_description: String
-    actual_location: AddLocation
+    
 }
 input NewCarrier {
   store_id: String
@@ -912,6 +916,7 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+  actual_location: AddLocation
 }
 
 
@@ -946,7 +951,7 @@ type Mutation {
 }
 
 type Subscription {
-    storeCarriers(store_id: String!): Order
+    storeCarriers(store_id: String!): Carrier!
     storeOrders(store_id: String!): Order!
 }`, BuiltIn: false},
 }
@@ -1468,6 +1473,37 @@ func (ec *executionContext) _Carrier_username(ctx context.Context, field graphql
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Carrier_actual_location(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Carrier",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Carrier().ActualLocation(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.Location)
+	fc.Result = res
+	return ec.marshalOLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐLocation(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Carrier_global(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
@@ -2579,37 +2615,6 @@ func (ec *executionContext) _Order_arrival_location(ctx context.Context, field g
 	return ec.marshalOLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐLocation(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Order_actual_location(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
-	defer func() {
-		if r := recover(); r != nil {
-			ec.Error(ctx, ec.Recover(ctx, r))
-			ret = graphql.Null
-		}
-	}()
-	fc := &graphql.FieldContext{
-		Object:   "Order",
-		Field:    field,
-		Args:     nil,
-		IsMethod: true,
-	}
-
-	ctx = graphql.WithFieldContext(ctx, fc)
-	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
-		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Order().ActualLocation(rctx, obj)
-	})
-	if err != nil {
-		ec.Error(ctx, err)
-		return graphql.Null
-	}
-	if resTmp == nil {
-		return graphql.Null
-	}
-	res := resTmp.(*model.Location)
-	fc.Result = res
-	return ec.marshalOLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐLocation(ctx, field.Selections, res)
-}
-
 func (ec *executionContext) _Order_detail(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -3573,10 +3578,13 @@ func (ec *executionContext) _Subscription_storeCarriers(ctx context.Context, fie
 		return nil
 	}
 	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
 		return nil
 	}
 	return func() graphql.Marshaler {
-		res, ok := <-resTmp.(<-chan *model.Order)
+		res, ok := <-resTmp.(<-chan *model.Carrier)
 		if !ok {
 			return nil
 		}
@@ -3584,7 +3592,7 @@ func (ec *executionContext) _Subscription_storeCarriers(ctx context.Context, fie
 			w.Write([]byte{'{'})
 			graphql.MarshalString(field.Alias).MarshalGQL(w)
 			w.Write([]byte{':'})
-			ec.marshalOOrder2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res).MarshalGQL(w)
+			ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res).MarshalGQL(w)
 			w.Write([]byte{'}'})
 		})
 	}
@@ -5078,6 +5086,14 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
+		case "actual_location":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("actual_location"))
+			it.ActualLocation, err = ec.unmarshalOAddLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐAddLocation(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -5122,14 +5138,6 @@ func (ec *executionContext) unmarshalInputUpdateOrder(ctx context.Context, obj i
 			if err != nil {
 				return it, err
 			}
-		case "actual_location":
-			var err error
-
-			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("actual_location"))
-			it.ActualLocation, err = ec.unmarshalOAddLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐAddLocation(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		}
 	}
 
@@ -5162,44 +5170,55 @@ func (ec *executionContext) _Carrier(ctx context.Context, sel ast.SelectionSet, 
 		case "name":
 			out.Values[i] = ec._Carrier_name(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "state_delivery":
 			out.Values[i] = ec._Carrier_state_delivery(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "username":
 			out.Values[i] = ec._Carrier_username(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
+		case "actual_location":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Carrier_actual_location(ctx, field, obj)
+				return res
+			})
 		case "global":
 			out.Values[i] = ec._Carrier_global(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "token":
 			out.Values[i] = ec._Carrier_token(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "password":
 			out.Values[i] = ec._Carrier_password(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "current_order_id":
 			out.Values[i] = ec._Carrier_current_order_id(ctx, field, obj)
 		case "message_token":
 			out.Values[i] = ec._Carrier_message_token(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		case "phone":
 			out.Values[i] = ec._Carrier_phone(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				invalids++
+				atomic.AddUint32(&invalids, 1)
 			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
@@ -5434,17 +5453,6 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 					}
 				}()
 				res = ec._Order_arrival_location(ctx, field, obj)
-				return res
-			})
-		case "actual_location":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Order_actual_location(ctx, field, obj)
 				return res
 			})
 		case "detail":

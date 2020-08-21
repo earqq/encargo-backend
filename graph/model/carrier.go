@@ -13,4 +13,5 @@ type Carrier struct {
 	CurrentOrderID string `json:"current_order_id" bson:"current_order_id"`
 	MessageToken   string `json:"message_token" bson:"message_token"`
 	Phone          string
+	ActualLocation Location `json:"actual_location" bson:"actual_location"`
 }

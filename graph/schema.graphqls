@@ -4,6 +4,7 @@ type Carrier {
     name: String!
     state_delivery: Int!
     username: String!
+    actual_location: Location
     global: Boolean!
     token: String!
     password: String!
@@ -54,7 +55,7 @@ type Order{
     client_phone: String!
     client_name: String!
     arrival_location: Location
-    actual_location: Location
+
     detail: [OrderDetail]
     carrier: Carrier
     store: Store
@@ -93,7 +94,7 @@ input UpdateOrder {
     state:Int
     score: Int
     score_description: String
-    actual_location: AddLocation
+
 }
 input NewCarrier {
   store_id: String
@@ -110,6 +111,7 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+  actual_location: AddLocation
 }
 
 
@@ -144,6 +146,6 @@ type Mutation {
 }
 
 type Subscription {
-    storeCarriers(store_id: String!): Order
+    storeCarriers(store_id: String!): Carrier!
     storeOrders(store_id: String!): Order!
 }
