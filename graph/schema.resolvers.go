@@ -245,6 +245,7 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		var carrierFields = bson.M{}
 		carrierFields["state_delivery"] = 2
 		r.carriers.Update(bson.M{"_id": input.CarrierID}, bson.M{"$set": carrierFields})
+		r.carriers.Find(bson.M{"_id": input.CarrierID}).One(&carrier)
 		r.Lock() // Enviar la informacion del carrier actualizado a la tienda
 		if r.storeCarriersObserver[order.StoreID] != nil {
 			r.storeCarriersObserver[order.StoreID] <- &carrier
