@@ -241,9 +241,15 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		update = true
 		r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
 		r.orders.Find(bson.M{"_id": id}).One(&order)
-		// r.Lock()
-		// StoreCarriersObserver[order.StoreID] <- carrier
-		// // r.Unlock()
+		//Actualizar estado de repartido a producto asignado
+		var carrierFields = bson.M{}
+		carrierFields["state_delivery"] = 2
+		r.carriers.Update(bson.M{"_id": input.CarrierID}, bson.M{"$set": carrierFields})
+		r.Lock() // Enviar la informacion del carrier actualizado a la tienda
+		if r.storeCarriersObserver[order.StoreID] != nil {
+			r.storeCarriersObserver[order.StoreID] <- &carrier
+		}
+		r.Unlock()
 	}
 	if input.State != nil {
 		fields["state"] = *input.State
@@ -255,7 +261,7 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			fields["carrier_id"] = ""
 		}
 		if *input.State == 2 {
-			carrierFields["state_delivery"] = 2 //Cambiar estado de repartidor a llevando producto
+			carrierFields["state_delivery"] = 3 //Cambiar estado de repartidor a llevando producto
 			fields["departure_date"] = t.Format("2006-01-02T15:04:05")
 		}
 		if *input.State == 3 {
@@ -263,14 +269,16 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 		}
 		if order.CarrierID != "" { // Actualizar campos del repartidor
+			//Actualizar estado de repartido a producto asignado
+			var carrier model.Carrier
 			r.carriers.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
-			var carriers []*model.Carrier
-			if err := r.carriers.Find(bson.M{"global": 1}).All(&carriers); err != nil {
-				return &model.Order{}, errors.New("No hay carriers")
+			r.carriers.Find(bson.M{"_id": order.CarrierID}).One(&carrier)
+			r.Lock() // Enviar la informacion del carrier actualizado a la tienda
+			if r.storeCarriersObserver[order.StoreID] != nil {
+				r.storeCarriersObserver[order.StoreID] <- &carrier
 			}
-			// r.Lock()
-			// StoreCarriersObserver[order.StoreID] <- &order
-			// r.Unlock()
+			r.Unlock()
+
 		}
 		r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
 		r.orders.Find(bson.M{"_id": id}).One(&order)
@@ -313,7 +321,7 @@ func (r *orderResolver) Carrier(ctx context.Context, obj *model.Order) (*model.C
 	var carrier model.Carrier
 	var carriersDB = db.GetCollection("carriers")
 	if err := carriersDB.Find(bson.M{"_id": obj.CarrierID}).One(&carrier); err != nil {
-		return &model.Carrier{}, errors.New("Carrier relacionado al order no existe")
+		return &model.Carrier{}, nil
 	}
 	return &carrier, nil
 }
@@ -483,9 +491,10 @@ func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) (
 	var ordersDB = db.GetCollection("orders")
 	if userContext != nil && userContext.UserType == "store" {
 		fields["store_id"] = userContext.ID
-	}
-	if userContext != nil && userContext.UserType == "carrier" {
+	} else if userContext != nil && userContext.UserType == "carrier" {
 		fields["carrier_id"] = userContext.ID
+	} else {
+		return []*model.Order{}, errors.New("Acceso denegado")
 	}
 	if input.State != nil {
 		fields["state"] = input.State
