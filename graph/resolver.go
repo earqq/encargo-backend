@@ -15,24 +15,36 @@ import (
 func New() generated.Config {
 	return generated.Config{
 		Resolvers: &Resolver{
-			carriers:              db.GetCollection("carriers"),
-			orders:                db.GetCollection("orders"),
-			stores:                db.GetCollection("stores"),
-			storeCarriersObserver: map[string]chan *model.Carrier{},
-			storeOrdersObserver:   map[string]chan *model.Order{},
-			orderObserver:         map[string]chan *model.Order{},
+			carriers:            db.GetCollection("carriers"),
+			orders:              db.GetCollection("orders"),
+			stores:              db.GetCollection("stores"),
+			storeOrdersTopics:   map[string]*StoreOrdersTopic{},
+			orderTopics:         map[string]*OrderTopic{},
+			storeCarriersTopics: map[string]*StoreCarriersTopic{},
 		},
 	}
 }
 
+type StoreCarriersTopic struct { //Topicos de store carriers
+	Key       string
+	Observers map[string]chan *model.Carrier
+}
+type StoreOrdersTopic struct { //Topicos de store orders
+	Key       string
+	Observers map[string]chan *model.Order
+}
+type OrderTopic struct { // Topicos de orders
+	Key       string
+	Observers map[string]chan *model.Order
+}
 type Resolver struct {
 	sync.Mutex
-	carriers              *mgo.Collection
-	orders                *mgo.Collection
-	stores                *mgo.Collection
-	storeCarriersObserver map[string]chan *model.Carrier
-	storeOrdersObserver   map[string]chan *model.Order
-	orderObserver         map[string]chan *model.Order
+	carriers            *mgo.Collection
+	orders              *mgo.Collection
+	stores              *mgo.Collection
+	storeCarriersTopics map[string]*StoreCarriersTopic
+	storeOrdersTopics   map[string]*StoreOrdersTopic
+	orderTopics         map[string]*OrderTopic
 }
 
 func HashPassword(password string) (string, error) {

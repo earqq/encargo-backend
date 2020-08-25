@@ -137,8 +137,11 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	r.carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	r.Lock()
-	if r.storeCarriersObserver[carrier.StoreID] != nil {
-		r.storeCarriersObserver[carrier.StoreID] <- &carrier
+	topic := r.storeCarriersTopics[carrier.StoreID]
+	if topic != nil {
+		for _, observer := range topic.Observers {
+			observer <- &carrier
+		}
 	}
 	r.Unlock()
 	return &carrier, nil
@@ -247,8 +250,11 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		r.carriers.Update(bson.M{"_id": input.CarrierID}, bson.M{"$set": carrierFields})
 		r.carriers.Find(bson.M{"_id": input.CarrierID}).One(&carrier)
 		r.Lock() // Enviar la informacion del carrier actualizado a la tienda
-		if r.storeCarriersObserver[order.StoreID] != nil {
-			r.storeCarriersObserver[order.StoreID] <- &carrier
+		topic := r.storeCarriersTopics[order.StoreID]
+		if topic != nil {
+			for _, observer := range topic.Observers {
+				observer <- &carrier
+			}
 		}
 		r.Unlock()
 	}
@@ -275,8 +281,11 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			r.carriers.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
 			r.carriers.Find(bson.M{"_id": order.CarrierID}).One(&carrier)
 			r.Lock() // Enviar la informacion del carrier actualizado a la tienda
-			if r.storeCarriersObserver[order.StoreID] != nil {
-				r.storeCarriersObserver[order.StoreID] <- &carrier
+			topic := r.storeCarriersTopics[order.StoreID]
+			if topic != nil {
+				for _, observer := range topic.Observers {
+					observer <- &carrier
+				}
 			}
 			r.Unlock()
 
@@ -285,13 +294,19 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		r.orders.Find(bson.M{"_id": id}).One(&order)
 
 		r.Lock()
-		if r.storeOrdersObserver[order.StoreID] != nil {
-			r.storeOrdersObserver[order.StoreID] <- &order
+		topic := r.storeOrdersTopics[order.StoreID]
+		if topic != nil {
+			for _, observer := range topic.Observers {
+				observer <- &order
+			}
 		}
 		r.Unlock()
 		r.Lock()
-		if r.orderObserver[order.ID] != nil {
-			r.orderObserver[order.ID] <- &order
+		topicOrder := r.orderTopics[order.ID]
+		if topicOrder != nil {
+			for _, observer := range topicOrder.Observers {
+				observer <- &order
+			}
 		}
 		r.Unlock()
 	}
@@ -522,46 +537,79 @@ func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) (
 }
 
 func (r *subscriptionResolver) StoreCarriers(ctx context.Context, storeID string) (<-chan *model.Carrier, error) {
+	r.Lock()
+	topic := r.storeCarriersTopics[storeID]
+	if topic == nil {
+		topic = &StoreCarriersTopic{
+			Key:       storeID,
+			Observers: map[string]chan *model.Carrier{},
+		}
+		r.storeCarriersTopics[storeID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
 	event := make(chan *model.Carrier, 1)
-	// Create new channel for request
 	go func() {
 		<-ctx.Done()
 		r.Lock()
-		delete(r.storeCarriersObserver, storeID)
+		delete(topic.Observers, id)
 		r.Unlock()
 	}()
+
 	r.Lock()
-	r.storeCarriersObserver[storeID] = event
+	topic.Observers[id] = event
 	r.Unlock()
 	return event, nil
 }
 
 func (r *subscriptionResolver) StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error) {
+	r.Lock()
+	topic := r.storeOrdersTopics[storeID]
+	if topic == nil {
+		topic = &StoreOrdersTopic{
+			Key:       storeID,
+			Observers: map[string]chan *model.Order{},
+		}
+		r.storeOrdersTopics[storeID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
 	event := make(chan *model.Order, 1)
-	// Create new channel for request
 	go func() {
 		<-ctx.Done()
 		r.Lock()
-		delete(r.storeOrdersObserver, storeID)
+		delete(topic.Observers, id)
 		r.Unlock()
 	}()
+
 	r.Lock()
-	r.storeOrdersObserver[storeID] = event
+	topic.Observers[id] = event
 	r.Unlock()
 	return event, nil
 }
 
 func (r *subscriptionResolver) Order(ctx context.Context, orderID string) (<-chan *model.Order, error) {
+	r.Lock()
+	topic := r.orderTopics[orderID]
+	if topic == nil {
+		topic = &OrderTopic{
+			Key:       orderID,
+			Observers: map[string]chan *model.Order{},
+		}
+		r.orderTopics[orderID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
 	event := make(chan *model.Order, 1)
-	// Create new channel for request
 	go func() {
 		<-ctx.Done()
 		r.Lock()
-		delete(r.orderObserver, orderID)
+		delete(topic.Observers, id)
 		r.Unlock()
 	}()
+
 	r.Lock()
-	r.orderObserver[orderID] = event
+	topic.Observers[id] = event
 	r.Unlock()
 	return event, nil
 }
