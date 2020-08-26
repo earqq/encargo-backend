@@ -136,7 +136,7 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	}
 	r.carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
-	r.Lock()
+	r.Lock() //Enviando info a tienda sobre carrier actualizado
 	topic := r.storeCarriersTopics[carrier.StoreID]
 	if topic != nil {
 		for _, observer := range topic.Observers {
@@ -144,6 +144,7 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		}
 	}
 	r.Unlock()
+
 	return &carrier, nil
 }
 
@@ -221,7 +222,14 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 	if err := ordersBD.Find(bson.M{"_id": bson.ObjectId(id).Hex()}).One(&order); err != nil {
 		return &model.Order{}, err
 	}
-
+	r.Lock()
+	topic := r.storeOrdersTopics[order.StoreID]
+	if topic != nil {
+		for _, observer := range topic.Observers {
+			observer <- &order
+		}
+	}
+	r.Unlock()
 	return &order, nil
 }
 
@@ -247,6 +255,7 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 		//Actualizar estado de repartido a producto asignado
 		var carrierFields = bson.M{}
 		carrierFields["state_delivery"] = 2
+		carrierFields["current_order_id"] = order.ID
 		r.carriers.Update(bson.M{"_id": input.CarrierID}, bson.M{"$set": carrierFields})
 		r.carriers.Find(bson.M{"_id": input.CarrierID}).One(&carrier)
 		r.Lock() // Enviar la informacion del carrier actualizado a la tienda
@@ -257,22 +266,32 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 			}
 		}
 		r.Unlock()
+		r.Lock() //Enviando info a carrier sobre asignacion
+		topicOrder := r.carrierTopics[*input.CarrierID]
+		if topicOrder != nil {
+			for _, observer := range topicOrder.Observers {
+				observer <- &carrier
+			}
+		}
+		r.Unlock()
 	}
 	if input.State != nil {
 		fields["state"] = *input.State
 		update = true
 
 		var carrierFields = bson.M{}
-		if *input.State == 0 {
+		if *input.State == 0 { //Pedido cancelado
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 			fields["carrier_id"] = ""
+			carrierFields["current_order_id"] = ""
 		}
-		if *input.State == 2 {
+		if *input.State == 2 { // Pedido aceptado
 			carrierFields["state_delivery"] = 3 //Cambiar estado de repartidor a llevando producto
 			fields["departure_date"] = t.Format("2006-01-02T15:04:05")
 		}
-		if *input.State == 3 {
+		if *input.State == 3 { // Pedido completado
 			fields["delivery_date"] = t.Format("2006-01-02T15:04:05")
+			carrierFields["current_order_id"] = ""
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 		}
 		if order.CarrierID != "" { // Actualizar campos del repartidor
@@ -288,7 +307,14 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 				}
 			}
 			r.Unlock()
-
+			r.Lock() //Enviando info a carrier sobre asignacion
+			topicOrder := r.carrierTopics[order.CarrierID]
+			if topicOrder != nil {
+				for _, observer := range topicOrder.Observers {
+					observer <- &carrier
+				}
+			}
+			r.Unlock()
 		}
 		r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
 		r.orders.Find(bson.M{"_id": id}).One(&order)
@@ -601,6 +627,32 @@ func (r *subscriptionResolver) Order(ctx context.Context, orderID string) (<-cha
 	r.Unlock()
 	id := RandStringRunes(8)
 	event := make(chan *model.Order, 1)
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(topic.Observers, id)
+		r.Unlock()
+	}()
+
+	r.Lock()
+	topic.Observers[id] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) Carrier(ctx context.Context, carrierID string) (<-chan *model.Carrier, error) {
+	r.Lock()
+	topic := r.carrierTopics[carrierID]
+	if topic == nil {
+		topic = &CarrierTopic{
+			Key:       carrierID,
+			Observers: map[string]chan *model.Carrier{},
+		}
+		r.carrierTopics[carrierID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
+	event := make(chan *model.Carrier, 1)
 	go func() {
 		<-ctx.Done()
 		r.Lock()

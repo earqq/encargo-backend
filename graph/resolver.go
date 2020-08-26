@@ -20,6 +20,7 @@ func New() generated.Config {
 			stores:              db.GetCollection("stores"),
 			storeOrdersTopics:   map[string]*StoreOrdersTopic{},
 			orderTopics:         map[string]*OrderTopic{},
+			carrierTopics:       map[string]*CarrierTopic{},
 			storeCarriersTopics: map[string]*StoreCarriersTopic{},
 		},
 	}
@@ -37,6 +38,10 @@ type OrderTopic struct { // Topicos de orders
 	Key       string
 	Observers map[string]chan *model.Order
 }
+type CarrierTopic struct { // Topicos de orders
+	Key       string
+	Observers map[string]chan *model.Carrier
+}
 type Resolver struct {
 	sync.Mutex
 	carriers            *mgo.Collection
@@ -45,6 +50,7 @@ type Resolver struct {
 	storeCarriersTopics map[string]*StoreCarriersTopic
 	storeOrdersTopics   map[string]*StoreOrdersTopic
 	orderTopics         map[string]*OrderTopic
+	carrierTopics       map[string]*CarrierTopic
 }
 
 func HashPassword(password string) (string, error) {
