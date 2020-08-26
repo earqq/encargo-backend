@@ -54,6 +54,7 @@ type ComplexityRoot struct {
 		ID             func(childComplexity int) int
 		MessageToken   func(childComplexity int) int
 		Name           func(childComplexity int) int
+		Order          func(childComplexity int) int
 		Password       func(childComplexity int) int
 		Phone          func(childComplexity int) int
 		StateDelivery  func(childComplexity int) int
@@ -147,6 +148,8 @@ type ComplexityRoot struct {
 
 type CarrierResolver interface {
 	ActualLocation(ctx context.Context, obj *model.Carrier) (*model.Location, error)
+
+	Order(ctx context.Context, obj *model.Carrier) (*model.Order, error)
 }
 type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
@@ -237,6 +240,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Carrier.Name(childComplexity), true
+
+	case "Carrier.order":
+		if e.complexity.Carrier.Order == nil {
+			break
+		}
+
+		return e.complexity.Carrier.Order(childComplexity), true
 
 	case "Carrier.password":
 		if e.complexity.Carrier.Password == nil {
@@ -844,6 +854,7 @@ var sources = []*ast.Source{
     current_order_id: String
     message_token: String!
     phone: String!
+    order: Order!
 }
 type CarrierStats {
     orders: Int!
@@ -1765,6 +1776,40 @@ func (ec *executionContext) _Carrier_phone(ctx context.Context, field graphql.Co
 	res := resTmp.(string)
 	fc.Result = res
 	return ec.marshalNString2string(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Carrier_order(ctx context.Context, field graphql.CollectedField, obj *model.Carrier) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Carrier",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Carrier().Order(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Order)
+	fc.Result = res
+	return ec.marshalNOrder2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _CarrierStats_orders(ctx context.Context, field graphql.CollectedField, obj *model.CarrierStats) (ret graphql.Marshaler) {
@@ -5382,6 +5427,20 @@ func (ec *executionContext) _Carrier(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
+		case "order":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Carrier_order(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&invalids, 1)
+				}
+				return res
+			})
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}

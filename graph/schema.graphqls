@@ -11,6 +11,7 @@ type Carrier {
     current_order_id: String
     message_token: String!
     phone: String!
+    order: Order!
 }
 type CarrierStats {
     orders: Int!

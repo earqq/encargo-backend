@@ -19,6 +19,14 @@ func (r *carrierResolver) ActualLocation(ctx context.Context, obj *model.Carrier
 	return &obj.ActualLocation, nil
 }
 
+func (r *carrierResolver) Order(ctx context.Context, obj *model.Carrier) (*model.Order, error) {
+	var order model.Order
+	if err := r.orders.Find(bson.M{"_id": obj.CurrentOrderID}).One(&order); err != nil {
+		return &model.Order{}, nil
+	}
+	return &order, nil
+}
+
 func (r *mutationResolver) CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error) {
 	carriers := db.GetCollection("carriers")
 	var carrier model.Carrier
