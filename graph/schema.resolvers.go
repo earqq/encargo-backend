@@ -286,23 +286,26 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	if input.State != nil {
 		fields["state"] = *input.State
 		update = true
-
+		updateCarrier := false
 		var carrierFields = bson.M{}
 		if *input.State == 0 { //Pedido cancelado
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
 			fields["carrier_id"] = ""
 			carrierFields["current_order_id"] = ""
+			updateCarrier = true
 		}
 		if *input.State == 2 { // Pedido aceptado
 			carrierFields["state_delivery"] = 3 //Cambiar estado de repartidor a llevando producto
 			fields["departure_date"] = t.Format("2006-01-02T15:04:05")
+			updateCarrier = true
 		}
 		if *input.State == 3 { // Pedido completado
 			fields["delivery_date"] = t.Format("2006-01-02T15:04:05")
 			carrierFields["current_order_id"] = ""
 			carrierFields["state_delivery"] = 1 // Actualizar el estado de repartidor a disponible a repartos
+			updateCarrier = true
 		}
-		if order.CarrierID != "" { // Actualizar campos del repartidor
+		if order.CarrierID != "" && updateCarrier { // Actualizar campos del repartidor
 			//Actualizar estado de repartido a producto asignado
 			var carrier model.Carrier
 			r.carriers.Update(bson.M{"_id": order.CarrierID}, bson.M{"$set": carrierFields})
