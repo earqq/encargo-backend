@@ -112,9 +112,10 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+}
+input UpdateCarrierLocation {
   actual_location: AddLocation
 }
-
 
 input NewStore {
     name: String!
@@ -140,6 +141,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
     updateCarrier(id:String, input:UpdateCarrier!): Carrier!
+    updateCarrierLocation(id:String!,input: UpdateCarrierLocation!): Carrier!
     deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
@@ -151,4 +153,5 @@ type Subscription {
     storeOrders(store_id: String!): Order!
     order(order_id: String!): Order!
     carrier(carrier_id: String!): Carrier!
+    carrierLocation(carrier_id: String!): Carrier!
 }

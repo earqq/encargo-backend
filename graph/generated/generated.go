@@ -82,13 +82,14 @@ type ComplexityRoot struct {
 	}
 
 	Mutation struct {
-		CreateCarrier func(childComplexity int, input model.NewCarrier) int
-		CreateOrder   func(childComplexity int, input model.NewOrder) int
-		CreateStore   func(childComplexity int, input model.NewStore) int
-		DeleteCarrier func(childComplexity int, carrierID *string) int
-		DeleteStore   func(childComplexity int) int
-		UpdateCarrier func(childComplexity int, id *string, input model.UpdateCarrier) int
-		UpdateOrder   func(childComplexity int, id string, input model.UpdateOrder) int
+		CreateCarrier         func(childComplexity int, input model.NewCarrier) int
+		CreateOrder           func(childComplexity int, input model.NewOrder) int
+		CreateStore           func(childComplexity int, input model.NewStore) int
+		DeleteCarrier         func(childComplexity int, carrierID *string) int
+		DeleteStore           func(childComplexity int) int
+		UpdateCarrier         func(childComplexity int, id *string, input model.UpdateCarrier) int
+		UpdateCarrierLocation func(childComplexity int, id string, input model.UpdateCarrierLocation) int
+		UpdateOrder           func(childComplexity int, id string, input model.UpdateOrder) int
 	}
 
 	Order struct {
@@ -139,10 +140,11 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		Carrier       func(childComplexity int, carrierID string) int
-		Order         func(childComplexity int, orderID string) int
-		StoreCarriers func(childComplexity int, storeID string) int
-		StoreOrders   func(childComplexity int, storeID string) int
+		Carrier         func(childComplexity int, carrierID string) int
+		CarrierLocation func(childComplexity int, carrierID string) int
+		Order           func(childComplexity int, orderID string) int
+		StoreCarriers   func(childComplexity int, storeID string) int
+		StoreOrders     func(childComplexity int, storeID string) int
 	}
 }
 
@@ -155,6 +157,7 @@ type MutationResolver interface {
 	CreateCarrier(ctx context.Context, input model.NewCarrier) (*model.Carrier, error)
 	CreateStore(ctx context.Context, input model.NewStore) (*model.Store, error)
 	UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error)
+	UpdateCarrierLocation(ctx context.Context, id string, input model.UpdateCarrierLocation) (*model.Carrier, error)
 	DeleteCarrier(ctx context.Context, carrierID *string) (*model.Carrier, error)
 	DeleteStore(ctx context.Context) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
@@ -182,6 +185,7 @@ type SubscriptionResolver interface {
 	StoreOrders(ctx context.Context, storeID string) (<-chan *model.Order, error)
 	Order(ctx context.Context, orderID string) (<-chan *model.Order, error)
 	Carrier(ctx context.Context, carrierID string) (<-chan *model.Carrier, error)
+	CarrierLocation(ctx context.Context, carrierID string) (<-chan *model.Carrier, error)
 }
 
 type executableSchema struct {
@@ -419,6 +423,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateCarrier(childComplexity, args["id"].(*string), args["input"].(model.UpdateCarrier)), true
+
+	case "Mutation.updateCarrierLocation":
+		if e.complexity.Mutation.UpdateCarrierLocation == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_updateCarrierLocation_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpdateCarrierLocation(childComplexity, args["id"].(string), args["input"].(model.UpdateCarrierLocation)), true
 
 	case "Mutation.updateOrder":
 		if e.complexity.Mutation.UpdateOrder == nil {
@@ -724,6 +740,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.Carrier(childComplexity, args["carrier_id"].(string)), true
 
+	case "Subscription.carrierLocation":
+		if e.complexity.Subscription.CarrierLocation == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_carrierLocation_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.CarrierLocation(childComplexity, args["carrier_id"].(string)), true
+
 	case "Subscription.order":
 		if e.complexity.Subscription.Order == nil {
 			break
@@ -955,9 +983,10 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+}
+input UpdateCarrierLocation {
   actual_location: AddLocation
 }
-
 
 input NewStore {
     name: String!
@@ -983,6 +1012,7 @@ type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
     updateCarrier(id:String, input:UpdateCarrier!): Carrier!
+    updateCarrierLocation(id:String!,input: UpdateCarrierLocation!): Carrier!
     deleteCarrier(carrier_id: String): Carrier!
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
@@ -994,6 +1024,7 @@ type Subscription {
     storeOrders(store_id: String!): Order!
     order(order_id: String!): Order!
     carrier(carrier_id: String!): Carrier!
+    carrierLocation(carrier_id: String!): Carrier!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -1059,6 +1090,30 @@ func (ec *executionContext) field_Mutation_deleteCarrier_args(ctx context.Contex
 		}
 	}
 	args["carrier_id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_updateCarrierLocation_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	var arg1 model.UpdateCarrierLocation
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("input"))
+		arg1, err = ec.unmarshalNUpdateCarrierLocation2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrierLocation(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -1281,6 +1336,21 @@ func (ec *executionContext) field_Query_stores_args(ctx context.Context, rawArgs
 		}
 	}
 	args["search"] = arg1
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_carrierLocation_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["carrier_id"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("carrier_id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["carrier_id"] = arg0
 	return args, nil
 }
 
@@ -2213,6 +2283,47 @@ func (ec *executionContext) _Mutation_updateCarrier(ctx context.Context, field g
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().UpdateCarrier(rctx, args["id"].(*string), args["input"].(model.UpdateCarrier))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Carrier)
+	fc.Result = res
+	return ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_updateCarrierLocation(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_updateCarrierLocation_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpdateCarrierLocation(rctx, args["id"].(string), args["input"].(model.UpdateCarrierLocation))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -3856,6 +3967,57 @@ func (ec *executionContext) _Subscription_carrier(ctx context.Context, field gra
 	}
 }
 
+func (ec *executionContext) _Subscription_carrierLocation(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Subscription",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Subscription_carrierLocation_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().CarrierLocation(rctx, args["carrier_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func() graphql.Marshaler {
+		res, ok := <-resTmp.(<-chan *model.Carrier)
+		if !ok {
+			return nil
+		}
+		return graphql.WriterFunc(func(w io.Writer) {
+			w.Write([]byte{'{'})
+			graphql.MarshalString(field.Alias).MarshalGQL(w)
+			w.Write([]byte{':'})
+			ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res).MarshalGQL(w)
+			w.Write([]byte{'}'})
+		})
+	}
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -5293,6 +5455,18 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputUpdateCarrierLocation(ctx context.Context, obj interface{}) (model.UpdateCarrierLocation, error) {
+	var it model.UpdateCarrierLocation
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
 		case "actual_location":
 			var err error
 
@@ -5578,6 +5752,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "updateCarrier":
 			out.Values[i] = ec._Mutation_updateCarrier(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "updateCarrierLocation":
+			out.Values[i] = ec._Mutation_updateCarrierLocation(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -5970,6 +6149,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_order(ctx, fields[0])
 	case "carrier":
 		return ec._Subscription_carrier(ctx, fields[0])
+	case "carrierLocation":
+		return ec._Subscription_carrierLocation(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}
@@ -6491,6 +6672,11 @@ func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.S
 
 func (ec *executionContext) unmarshalNUpdateCarrier2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrier(ctx context.Context, v interface{}) (model.UpdateCarrier, error) {
 	res, err := ec.unmarshalInputUpdateCarrier(ctx, v)
+	return res, graphql.WrapErrorWithInputPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpdateCarrierLocation2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateCarrierLocation(ctx context.Context, v interface{}) (model.UpdateCarrierLocation, error) {
+	res, err := ec.unmarshalInputUpdateCarrierLocation(ctx, v)
 	return res, graphql.WrapErrorWithInputPath(ctx, err)
 }
 

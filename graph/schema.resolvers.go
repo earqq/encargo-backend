@@ -135,10 +135,6 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		update = true
 		fields["state_delivery"] = input.StateDelivery
 	}
-	if input.ActualLocation != nil {
-		update = true
-		fields["actual_location"] = input.ActualLocation
-	}
 	if !update {
 		return &model.Carrier{}, errors.New("No hay campos por actualizar")
 	}
@@ -146,6 +142,35 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	r.Lock() //Enviando info a tienda sobre carrier actualizado
 	topic := r.storeCarriersTopics[carrier.StoreID]
+	if topic != nil {
+		for _, observer := range topic.Observers {
+			observer <- &carrier
+		}
+	}
+	r.Unlock()
+
+	return &carrier, nil
+}
+
+func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, id string, input model.UpdateCarrierLocation) (*model.Carrier, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Carrier{}, errors.New("Acceso denegado")
+	}
+	var carrier model.Carrier
+	var fields = bson.M{}
+	update := false
+	if input.ActualLocation != nil {
+		update = true
+		fields["actual_location"] = input.ActualLocation
+	}
+	if !update {
+		return &model.Carrier{}, errors.New("No hay campos por actualizar")
+	}
+	r.carriers.Update(bson.M{"_id": userContext.ID}, bson.M{"$set": fields})
+	r.carriers.Find(bson.M{"_id": userContext.ID}).One(&carrier)
+	r.Lock() //Enviando info subscripcion de ubicacion
+	topic := r.carrierLocationTopics[carrier.ID]
 	if topic != nil {
 		for _, observer := range topic.Observers {
 			observer <- &carrier
@@ -660,6 +685,32 @@ func (r *subscriptionResolver) Carrier(ctx context.Context, carrierID string) (<
 			Observers: map[string]chan *model.Carrier{},
 		}
 		r.carrierTopics[carrierID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
+	event := make(chan *model.Carrier, 1)
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(topic.Observers, id)
+		r.Unlock()
+	}()
+
+	r.Lock()
+	topic.Observers[id] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) CarrierLocation(ctx context.Context, carrierID string) (<-chan *model.Carrier, error) {
+	r.Lock()
+	topic := r.carrierLocationTopics[carrierID]
+	if topic == nil {
+		topic = &CarrierLocationTopic{
+			Key:       carrierID,
+			Observers: map[string]chan *model.Carrier{},
+		}
+		r.carrierLocationTopics[carrierID] = topic
 	}
 	r.Unlock()
 	id := RandStringRunes(8)

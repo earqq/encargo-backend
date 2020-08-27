@@ -59,11 +59,14 @@ type NewStore struct {
 }
 
 type UpdateCarrier struct {
-	Name           *string      `json:"name"`
-	StateDelivery  *int         `json:"state_delivery"`
-	Global         *bool        `json:"global"`
-	Password       *string      `json:"password"`
-	MessageToken   *string      `json:"message_token"`
+	Name          *string `json:"name"`
+	StateDelivery *int    `json:"state_delivery"`
+	Global        *bool   `json:"global"`
+	Password      *string `json:"password"`
+	MessageToken  *string `json:"message_token"`
+}
+
+type UpdateCarrierLocation struct {
 	ActualLocation *AddLocation `json:"actual_location"`
 }
 
