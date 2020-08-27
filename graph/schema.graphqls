@@ -47,7 +47,6 @@ type Experience {
 }
 type Order{
     id: ID!
-    uuid: String!
     state: Int!
     price: Float!
     delivery_price: Float

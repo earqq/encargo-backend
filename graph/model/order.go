@@ -2,7 +2,6 @@ package model
 
 type Order struct {
 	ID              string  `json:"_id" bson:"_id"`
-	UUID            string  `json:"uuid" bson:"uuid"`
 	ProfileID       string  `json:"profile_id" bson:"profile_id"`
 	CarrierID       string  `json:"carrier_id" bson:"carrier_id"`
 	StoreID         string  `json:"store_id" bson:"store_id"`

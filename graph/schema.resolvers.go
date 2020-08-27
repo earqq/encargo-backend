@@ -216,7 +216,6 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 
 	ordersBD.Insert(bson.M{
 		"_id":              bson.ObjectId(id).Hex(),
-		"uuid":             bson.ObjectId(id).Hex(),
 		"store_id":         store.ID,
 		"price":            input.Price,
 		"delivery_price":   input.DeliveryPrice,
