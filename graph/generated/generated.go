@@ -898,7 +898,7 @@ type Experience {
 }
 type Order{
     id: ID!
-    uuid: ID!
+    uuid: String!
     state: Int!
     price: Float!
     delivery_price: Float
@@ -2460,7 +2460,7 @@ func (ec *executionContext) _Order_uuid(ctx context.Context, field graphql.Colle
 	}
 	res := resTmp.(string)
 	fc.Result = res
-	return ec.marshalNID2string(ctx, field.Selections, res)
+	return ec.marshalNString2string(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) _Order_state(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
