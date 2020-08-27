@@ -420,8 +420,12 @@ func (r *queryResolver) Carrier(ctx context.Context, id *string) (*model.Carrier
 	if userContext == nil {
 		return &model.Carrier{}, errors.New("Acceso denegado")
 	}
-	if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
-		return &model.Carrier{}, err
+	if id != nil {
+		if err := carriersDB.Find(bson.M{"_id": id}).Select(bson.M{"token": 0}).One(&carrier); err != nil {
+			return &model.Carrier{}, errors.New("No existe carrier con ese id")
+		}
+	} else if err := carriersDB.Find(bson.M{"username": userContext.Username}).One(&carrier); err != nil {
+		return &model.Carrier{}, errors.New("No existe carrier con ese token")
 	}
 	return &carrier, nil
 }
