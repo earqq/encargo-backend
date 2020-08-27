@@ -6,6 +6,7 @@ package graph
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/earqq/encargo-backend/auth"
@@ -24,6 +25,7 @@ func (r *carrierResolver) Order(ctx context.Context, obj *model.Carrier) (*model
 	if err := r.orders.Find(bson.M{"_id": obj.CurrentOrderID}).One(&order); err != nil {
 		return &model.Order{}, nil
 	}
+	order.UUID = order.ID
 	return &order, nil
 }
 
@@ -364,6 +366,10 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	r.orders.Find(bson.M{"_id": id}).One(&order)
 
 	return &order, nil
+}
+
+func (r *orderResolver) Uui(ctx context.Context, obj *model.Order) (string, error) {
+	panic(fmt.Errorf("not implemented"))
 }
 
 func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
