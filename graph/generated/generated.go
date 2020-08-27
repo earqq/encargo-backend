@@ -106,7 +106,7 @@ type ComplexityRoot struct {
 		Price           func(childComplexity int) int
 		State           func(childComplexity int) int
 		Store           func(childComplexity int) int
-		Uui             func(childComplexity int) int
+		UUID            func(childComplexity int) int
 	}
 
 	OrderDetail struct {
@@ -162,8 +162,6 @@ type MutationResolver interface {
 	UpdateOrder(ctx context.Context, id string, input model.UpdateOrder) (*model.Order, error)
 }
 type OrderResolver interface {
-	Uui(ctx context.Context, obj *model.Order) (string, error)
-
 	ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error)
 
 	Carrier(ctx context.Context, obj *model.Order) (*model.Carrier, error)
@@ -533,12 +531,12 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Order.Store(childComplexity), true
 
-	case "Order.uui":
-		if e.complexity.Order.Uui == nil {
+	case "Order.uuid":
+		if e.complexity.Order.UUID == nil {
 			break
 		}
 
-		return e.complexity.Order.Uui(childComplexity), true
+		return e.complexity.Order.UUID(childComplexity), true
 
 	case "OrderDetail.amount":
 		if e.complexity.OrderDetail.Amount == nil {
@@ -900,7 +898,7 @@ type Experience {
 }
 type Order{
     id: ID!
-    uui: ID!
+    uuid: ID!
     state: Int!
     price: Float!
     delivery_price: Float
@@ -2431,7 +2429,7 @@ func (ec *executionContext) _Order_id(ctx context.Context, field graphql.Collect
 	return ec.marshalNID2string(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _Order_uui(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
+func (ec *executionContext) _Order_uuid(ctx context.Context, field graphql.CollectedField, obj *model.Order) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -2442,13 +2440,13 @@ func (ec *executionContext) _Order_uui(ctx context.Context, field graphql.Collec
 		Object:   "Order",
 		Field:    field,
 		Args:     nil,
-		IsMethod: true,
+		IsMethod: false,
 	}
 
 	ctx = graphql.WithFieldContext(ctx, fc)
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.Order().Uui(rctx, obj)
+		return obj.UUID, nil
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5673,20 +5671,11 @@ func (ec *executionContext) _Order(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&invalids, 1)
 			}
-		case "uui":
-			field := field
-			out.Concurrently(i, func() (res graphql.Marshaler) {
-				defer func() {
-					if r := recover(); r != nil {
-						ec.Error(ctx, ec.Recover(ctx, r))
-					}
-				}()
-				res = ec._Order_uui(ctx, field, obj)
-				if res == graphql.Null {
-					atomic.AddUint32(&invalids, 1)
-				}
-				return res
-			})
+		case "uuid":
+			out.Values[i] = ec._Order_uuid(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&invalids, 1)
+			}
 		case "state":
 			out.Values[i] = ec._Order_state(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
