@@ -152,12 +152,15 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	return &carrier, nil
 }
 
-func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, id string, input model.UpdateCarrierLocation) (*model.Carrier, error) {
+func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, input model.UpdateCarrierLocation) (*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
 	if userContext == nil {
 		return &model.Carrier{}, errors.New("Acceso denegado")
 	}
 	var carrier model.Carrier
+	if err := r.carriers.Find(bson.M{"_id": userContext.ID}).One(&carrier); err != nil {
+		return &model.Carrier{}, errors.New("No existe carrier con el TOKEN")
+	}
 	var fields = bson.M{}
 	update := false
 	if input.ActualLocation != nil {
