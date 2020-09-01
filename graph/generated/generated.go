@@ -140,11 +140,12 @@ type ComplexityRoot struct {
 	}
 
 	Subscription struct {
-		Carrier         func(childComplexity int, carrierID string) int
-		CarrierLocation func(childComplexity int, carrierID string) int
-		Order           func(childComplexity int, orderID string) int
-		StoreCarriers   func(childComplexity int, storeID string) int
-		StoreOrders     func(childComplexity int, storeID string) int
+		Carrier              func(childComplexity int, carrierID string) int
+		CarrierLocation      func(childComplexity int, carrierID string) int
+		Order                func(childComplexity int, orderID string) int
+		StoreCarrierLocation func(childComplexity int, storeID string) int
+		StoreCarriers        func(childComplexity int, storeID string) int
+		StoreOrders          func(childComplexity int, storeID string) int
 	}
 }
 
@@ -186,6 +187,7 @@ type SubscriptionResolver interface {
 	Order(ctx context.Context, orderID string) (<-chan *model.Order, error)
 	Carrier(ctx context.Context, carrierID string) (<-chan *model.Carrier, error)
 	CarrierLocation(ctx context.Context, carrierID string) (<-chan *model.Carrier, error)
+	StoreCarrierLocation(ctx context.Context, storeID string) (<-chan *model.Carrier, error)
 }
 
 type executableSchema struct {
@@ -764,6 +766,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.Order(childComplexity, args["order_id"].(string)), true
 
+	case "Subscription.storeCarrierLocation":
+		if e.complexity.Subscription.StoreCarrierLocation == nil {
+			break
+		}
+
+		args, err := ec.field_Subscription_storeCarrierLocation_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Subscription.StoreCarrierLocation(childComplexity, args["store_id"].(string)), true
+
 	case "Subscription.storeCarriers":
 		if e.complexity.Subscription.StoreCarriers == nil {
 			break
@@ -1025,6 +1039,7 @@ type Subscription {
     order(order_id: String!): Order!
     carrier(carrier_id: String!): Carrier!
     carrierLocation(carrier_id: String!): Carrier!
+    storeCarrierLocation(store_id: String!): Carrier!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -1372,6 +1387,21 @@ func (ec *executionContext) field_Subscription_order_args(ctx context.Context, r
 		}
 	}
 	args["order_id"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Subscription_storeCarrierLocation_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["store_id"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("store_id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["store_id"] = arg0
 	return args, nil
 }
 
@@ -4009,6 +4039,57 @@ func (ec *executionContext) _Subscription_carrierLocation(ctx context.Context, f
 	}
 }
 
+func (ec *executionContext) _Subscription_storeCarrierLocation(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Subscription",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Subscription_storeCarrierLocation_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().StoreCarrierLocation(rctx, args["store_id"].(string))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func() graphql.Marshaler {
+		res, ok := <-resTmp.(<-chan *model.Carrier)
+		if !ok {
+			return nil
+		}
+		return graphql.WriterFunc(func(w io.Writer) {
+			w.Write([]byte{'{'})
+			graphql.MarshalString(field.Alias).MarshalGQL(w)
+			w.Write([]byte{':'})
+			ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res).MarshalGQL(w)
+			w.Write([]byte{'}'})
+		})
+	}
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -6142,6 +6223,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_carrier(ctx, fields[0])
 	case "carrierLocation":
 		return ec._Subscription_carrierLocation(ctx, fields[0])
+	case "storeCarrierLocation":
+		return ec._Subscription_storeCarrierLocation(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}

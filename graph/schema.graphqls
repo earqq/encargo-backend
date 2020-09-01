@@ -154,4 +154,5 @@ type Subscription {
     order(order_id: String!): Order!
     carrier(carrier_id: String!): Carrier!
     carrierLocation(carrier_id: String!): Carrier!
+    storeCarrierLocation(store_id: String!): Carrier!
 }

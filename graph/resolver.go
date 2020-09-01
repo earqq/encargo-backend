@@ -15,14 +15,15 @@ import (
 func New() generated.Config {
 	return generated.Config{
 		Resolvers: &Resolver{
-			carriers:              db.GetCollection("carriers"),
-			orders:                db.GetCollection("orders"),
-			stores:                db.GetCollection("stores"),
-			storeOrdersTopics:     map[string]*StoreOrdersTopic{},
-			orderTopics:           map[string]*OrderTopic{},
-			carrierTopics:         map[string]*CarrierTopic{},
-			storeCarriersTopics:   map[string]*StoreCarriersTopic{},
-			carrierLocationTopics: map[string]*CarrierLocationTopic{},
+			carriers:                    db.GetCollection("carriers"),
+			orders:                      db.GetCollection("orders"),
+			stores:                      db.GetCollection("stores"),
+			storeOrdersTopics:           map[string]*StoreOrdersTopic{},
+			orderTopics:                 map[string]*OrderTopic{},
+			carrierTopics:               map[string]*CarrierTopic{},
+			storeCarriersTopics:         map[string]*StoreCarriersTopic{},
+			carrierLocationTopics:       map[string]*CarrierLocationTopic{},
+			storeCarriersLocationTopics: map[string]*StoreCarriersLocationTopic{},
 		},
 	}
 }
@@ -47,16 +48,21 @@ type CarrierLocationTopic struct { // Topicos de orders
 	Key       string
 	Observers map[string]chan *model.Carrier
 }
+type StoreCarriersLocationTopic struct { // Topicos de orders
+	Key       string
+	Observers map[string]chan *model.Carrier
+}
 type Resolver struct {
 	sync.Mutex
-	carriers              *mgo.Collection
-	orders                *mgo.Collection
-	stores                *mgo.Collection
-	storeCarriersTopics   map[string]*StoreCarriersTopic
-	storeOrdersTopics     map[string]*StoreOrdersTopic
-	orderTopics           map[string]*OrderTopic
-	carrierTopics         map[string]*CarrierTopic
-	carrierLocationTopics map[string]*CarrierLocationTopic
+	carriers                    *mgo.Collection
+	orders                      *mgo.Collection
+	stores                      *mgo.Collection
+	storeCarriersTopics         map[string]*StoreCarriersTopic
+	storeOrdersTopics           map[string]*StoreOrdersTopic
+	orderTopics                 map[string]*OrderTopic
+	carrierTopics               map[string]*CarrierTopic
+	carrierLocationTopics       map[string]*CarrierLocationTopic
+	storeCarriersLocationTopics map[string]*StoreCarriersLocationTopic
 }
 
 func HashPassword(password string) (string, error) {

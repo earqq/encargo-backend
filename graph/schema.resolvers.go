@@ -180,7 +180,14 @@ func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, input mode
 		}
 	}
 	r.Unlock()
-
+	r.Lock() //Enviando info subscripcion de ubicacion a toda la tienda
+	topicStore := r.storeCarriersLocationTopics[carrier.StoreID]
+	if topicStore != nil {
+		for _, observer := range topicStore.Observers {
+			observer <- &carrier
+		}
+	}
+	r.Unlock()
 	return &carrier, nil
 }
 
@@ -718,6 +725,32 @@ func (r *subscriptionResolver) CarrierLocation(ctx context.Context, carrierID st
 			Observers: map[string]chan *model.Carrier{},
 		}
 		r.carrierLocationTopics[carrierID] = topic
+	}
+	r.Unlock()
+	id := RandStringRunes(8)
+	event := make(chan *model.Carrier, 1)
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(topic.Observers, id)
+		r.Unlock()
+	}()
+
+	r.Lock()
+	topic.Observers[id] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) StoreCarrierLocation(ctx context.Context, storeID string) (<-chan *model.Carrier, error) {
+	r.Lock()
+	topic := r.storeCarriersLocationTopics[storeID]
+	if topic == nil {
+		topic = &StoreCarriersLocationTopic{
+			Key:       storeID,
+			Observers: map[string]chan *model.Carrier{},
+		}
+		r.storeCarriersLocationTopics[storeID] = topic
 	}
 	r.Unlock()
 	id := RandStringRunes(8)
