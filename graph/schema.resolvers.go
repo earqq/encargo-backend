@@ -603,6 +603,9 @@ func (r *queryResolver) Orders(ctx context.Context, input model.FilterOptions) (
 			bson.M{"client_name": bson.M{"$regex": *input.Search, "$options": "i"}},
 			bson.M{"client_phone": bson.M{"$regex": *input.Search, "$options": "i"}})
 	}
+	if input.Ids != nil {
+		fields["_id"] = bson.M{"$in": input.Ids}
+	}
 	if len(orArray) > 0 {
 		fields["$or"] = orArray
 	}

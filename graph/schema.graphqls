@@ -70,6 +70,7 @@ input FilterOptions{
     state2:Int
     carrier_id:String
     search:String
+    ids: [String]
 }
 input NewOrderDetail {
     amount: Float

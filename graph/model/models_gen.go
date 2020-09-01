@@ -15,12 +15,13 @@ type CarrierStats struct {
 }
 
 type FilterOptions struct {
-	Limit     int     `json:"limit"`
-	State     *int    `json:"state"`
-	State1    *int    `json:"state1"`
-	State2    *int    `json:"state2"`
-	CarrierID *string `json:"carrier_id"`
-	Search    *string `json:"search"`
+	Limit     int       `json:"limit"`
+	State     *int      `json:"state"`
+	State1    *int      `json:"state1"`
+	State2    *int      `json:"state2"`
+	CarrierID *string   `json:"carrier_id"`
+	Search    *string   `json:"search"`
+	Ids       []*string `json:"ids"`
 }
 
 type NewCarrier struct {
