@@ -457,7 +457,7 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 	if global != nil && *global == true {
 		fields["$or"] = []bson.M{
 			bson.M{"store_id": userContext.ID},
-			bson.M{"global": global}}
+			bson.M{"global": *global}}
 	} else {
 		fields["store_id"] = userContext.ID
 	}
