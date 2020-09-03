@@ -446,26 +446,23 @@ func (r *queryResolver) Carrier(ctx context.Context, id *string) (*model.Carrier
 
 func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string, global *bool, stateDelivery *int) ([]*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
-
+	if userContext == nil || userContext.UserType != "store" {
+		return []*model.Carrier{}, errors.New("Acceso denegado")
+	}
 	var carriers []*model.Carrier
 	var fields = bson.M{}
 	if search != nil {
 		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
 	}
 	if global != nil {
-		fields["global"] = global
+		fields["$or"] = []bson.M{
+			bson.M{"store_id": userContext.ID},
+			bson.M{"global": global}}
+	} else {
+		fields["store_id"] = userContext.ID
 	}
 	if stateDelivery != nil {
 		fields["state_delivery"] = stateDelivery
-	}
-	if userContext != nil && userContext.UserType == "store" {
-		if global != nil {
-			fields["$or"] = []bson.M{
-				bson.M{"store_id": userContext.ID},
-				bson.M{"global": global}}
-		} else {
-			fields["store_id"] = userContext.ID
-		}
 	}
 	carriersDB := db.GetCollection("carriers")
 	if limit != nil {
