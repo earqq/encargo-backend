@@ -29,7 +29,6 @@ type NewCarrier struct {
 	Name         string  `json:"name"`
 	Username     string  `json:"username"`
 	Password     string  `json:"password"`
-	Global       bool    `json:"global"`
 	MessageToken *string `json:"message_token"`
 	Phone        string  `json:"phone"`
 }

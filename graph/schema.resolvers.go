@@ -40,6 +40,10 @@ func (r *mutationResolver) CreateCarrier(ctx context.Context, input model.NewCar
 	password, _ := HashPassword((input.Password))
 	//Generar token
 	var Token = auth.GenerateJWT(input.Username, "carrier")
+	var global = true
+	if input.StoreID != nil {
+		global = false
+	}
 	id := bson.NewObjectId()
 	carriers.Insert(bson.M{
 		"_id":              bson.ObjectId(id).Hex(),
@@ -49,7 +53,7 @@ func (r *mutationResolver) CreateCarrier(ctx context.Context, input model.NewCar
 		"token":            Token,
 		"store_id":         input.StoreID,
 		"password":         password,
-		"global":           input.Global,
+		"global":           global,
 		"current_order_id": 0,
 		"message_token":    input.MessageToken,
 		"phone":            input.Phone,
@@ -449,13 +453,19 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
 	}
 	if global != nil {
-		fields["global"] = *global
+		fields["global"] = global
 	}
 	if stateDelivery != nil {
 		fields["state_delivery"] = stateDelivery
 	}
 	if userContext != nil && userContext.UserType == "store" {
-		fields["store_id"] = userContext.ID
+		if global != nil {
+			fields["$or"] = []bson.M{
+				bson.M{"store_id": userContext.ID},
+				bson.M{"global": global}}
+		} else {
+			fields["store_id"] = userContext.ID
+		}
 	}
 	carriersDB := db.GetCollection("carriers")
 	if limit != nil {

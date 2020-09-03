@@ -988,7 +988,6 @@ input NewCarrier {
   name: String!
   username: String!
   password: String!
-  global: Boolean!
   message_token: String
   phone: String!
 }
@@ -5293,14 +5292,6 @@ func (ec *executionContext) unmarshalInputNewCarrier(ctx context.Context, obj in
 
 			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("password"))
 			it.Password, err = ec.unmarshalNString2string(ctx, v)
-			if err != nil {
-				return it, err
-			}
-		case "global":
-			var err error
-
-			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("global"))
-			it.Global, err = ec.unmarshalNBoolean2bool(ctx, v)
 			if err != nil {
 				return it, err
 			}

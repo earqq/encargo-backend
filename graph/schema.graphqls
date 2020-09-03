@@ -103,7 +103,6 @@ input NewCarrier {
   name: String!
   username: String!
   password: String!
-  global: Boolean!
   message_token: String
   phone: String!
 }
