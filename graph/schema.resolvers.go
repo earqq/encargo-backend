@@ -454,7 +454,7 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 	if search != nil {
 		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
 	}
-	if global != nil {
+	if global != nil && *global == true {
 		fields["$or"] = []bson.M{
 			bson.M{"store_id": userContext.ID},
 			bson.M{"global": global}}
@@ -464,13 +464,12 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 	if stateDelivery != nil {
 		fields["state_delivery"] = stateDelivery
 	}
-	carriersDB := db.GetCollection("carriers")
-	if limit != nil {
-		carriersDB.Find(fields).Select(bson.M{"token": 0}).Limit(*limit).Sort("-updated_at").All(&carriers)
-	} else {
-		carriersDB.Find(fields).Select(bson.M{"token": 0}).Sort("-updated_at").All(&carriers)
-	}
 
+	if limit != nil {
+		r.carriers.Find(fields).Select(bson.M{"token": 0}).Limit(*limit).Sort("-updated_at").All(&carriers)
+	} else {
+		r.carriers.Find(fields).Select(bson.M{"token": 0}).Sort("-updated_at").All(&carriers)
+	}
 	return carriers, nil
 }
 
