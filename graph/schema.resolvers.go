@@ -124,7 +124,7 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	}
 	if input.Global != nil {
 		update = true
-		fields["name"] = input.Global
+		fields["global"] = input.Global
 	}
 	if input.Password != nil && *input.Password != "" {
 		update = true
@@ -449,7 +449,7 @@ func (r *queryResolver) Carriers(ctx context.Context, limit *int, search *string
 		fields["name"] = bson.M{"$regex": *search, "$options": "i"}
 	}
 	if global != nil {
-		fields["global"] = global
+		fields["global"] = *global
 	}
 	if stateDelivery != nil {
 		fields["state_delivery"] = stateDelivery
