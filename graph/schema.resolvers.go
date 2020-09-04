@@ -172,11 +172,15 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	r.Lock() //Enviando info a tienda sobre carrier actualizado
 	topic := r.storeCarriersTopics[carrier.StoreID]
-	if input.StoreID != nil && carrier.Global {
-		topic = r.storeCarriersTopics[*input.StoreID]
-	}
 	if topic != nil {
 		for _, observer := range topic.Observers {
+			observer <- &carrier
+		}
+	}
+	r.Unlock()
+	r.Lock() //Enviando info a tienda sobre carrier actualizado
+	if carrier.Global == true && r.globalCarriersTopics != nil {
+		for _, observer := range r.globalCarriersTopics {
 			observer <- &carrier
 		}
 	}
@@ -826,6 +830,22 @@ func (r *subscriptionResolver) GlobalCarriersLocation(ctx context.Context) (<-ch
 
 	r.Lock()
 	r.globalCarriersLocationTopics[id] = event
+	r.Unlock()
+	return event, nil
+}
+
+func (r *subscriptionResolver) GlobalCarriers(ctx context.Context) (<-chan *model.Carrier, error) {
+	id := RandStringRunes(8)
+	event := make(chan *model.Carrier, 1)
+	go func() {
+		<-ctx.Done()
+		r.Lock()
+		delete(r.globalCarriersTopics, id)
+		r.Unlock()
+	}()
+
+	r.Lock()
+	r.globalCarriersTopics[id] = event
 	r.Unlock()
 	return event, nil
 }

@@ -143,6 +143,7 @@ type ComplexityRoot struct {
 	Subscription struct {
 		Carrier                func(childComplexity int, carrierID string) int
 		CarrierLocation        func(childComplexity int, carrierID string) int
+		GlobalCarriers         func(childComplexity int) int
 		GlobalCarriersLocation func(childComplexity int) int
 		Order                  func(childComplexity int, orderID string) int
 		StoreCarrierLocation   func(childComplexity int, storeID string) int
@@ -192,6 +193,7 @@ type SubscriptionResolver interface {
 	CarrierLocation(ctx context.Context, carrierID string) (<-chan *model.Carrier, error)
 	StoreCarrierLocation(ctx context.Context, storeID string) (<-chan *model.Carrier, error)
 	GlobalCarriersLocation(ctx context.Context) (<-chan *model.Carrier, error)
+	GlobalCarriers(ctx context.Context) (<-chan *model.Carrier, error)
 }
 
 type executableSchema struct {
@@ -770,6 +772,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Subscription.CarrierLocation(childComplexity, args["carrier_id"].(string)), true
 
+	case "Subscription.globalCarriers":
+		if e.complexity.Subscription.GlobalCarriers == nil {
+			break
+		}
+
+		return e.complexity.Subscription.GlobalCarriers(childComplexity), true
+
 	case "Subscription.globalCarriersLocation":
 		if e.complexity.Subscription.GlobalCarriersLocation == nil {
 			break
@@ -1020,7 +1029,6 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
-  store_id: String
 }
 input UpdateCarrierLocation {
   actual_location: AddLocation
@@ -1070,6 +1078,7 @@ type Subscription {
     carrierLocation(carrier_id: String!): Carrier!
     storeCarrierLocation(store_id: String!): Carrier!
     globalCarriersLocation: Carrier!
+    globalCarriers: Carrier!
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -4220,6 +4229,50 @@ func (ec *executionContext) _Subscription_globalCarriersLocation(ctx context.Con
 	}
 }
 
+func (ec *executionContext) _Subscription_globalCarriers(ctx context.Context, field graphql.CollectedField) (ret func() graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = nil
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Subscription",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Subscription().GlobalCarriers(rctx)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return nil
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return nil
+	}
+	return func() graphql.Marshaler {
+		res, ok := <-resTmp.(<-chan *model.Carrier)
+		if !ok {
+			return nil
+		}
+		return graphql.WriterFunc(func(w io.Writer) {
+			w.Write([]byte{'{'})
+			graphql.MarshalString(field.Alias).MarshalGQL(w)
+			w.Write([]byte{':'})
+			ec.marshalNCarrier2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐCarrier(ctx, field.Selections, res).MarshalGQL(w)
+			w.Write([]byte{'}'})
+		})
+	}
+}
+
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -5657,14 +5710,6 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 			if err != nil {
 				return it, err
 			}
-		case "store_id":
-			var err error
-
-			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("store_id"))
-			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
-			if err != nil {
-				return it, err
-			}
 		}
 	}
 
@@ -6398,6 +6443,8 @@ func (ec *executionContext) _Subscription(ctx context.Context, sel ast.Selection
 		return ec._Subscription_storeCarrierLocation(ctx, fields[0])
 	case "globalCarriersLocation":
 		return ec._Subscription_globalCarriersLocation(ctx, fields[0])
+	case "globalCarriers":
+		return ec._Subscription_globalCarriers(ctx, fields[0])
 	default:
 		panic("unknown field " + strconv.Quote(fields[0].Name))
 	}

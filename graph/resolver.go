@@ -25,6 +25,7 @@ func New() generated.Config {
 			carrierLocationTopics:        map[string]*CarrierLocationTopic{},
 			storeCarriersLocationTopics:  map[string]*StoreCarriersLocationTopic{},
 			globalCarriersLocationTopics: map[string]chan *model.Carrier{},
+			globalCarriersTopics:         map[string]chan *model.Carrier{},
 		},
 	}
 }
@@ -66,6 +67,7 @@ type Resolver struct {
 	carrierLocationTopics        map[string]*CarrierLocationTopic
 	storeCarriersLocationTopics  map[string]*StoreCarriersLocationTopic
 	globalCarriersLocationTopics map[string]chan *model.Carrier
+	globalCarriersTopics         map[string]chan *model.Carrier
 }
 
 func HashPassword(password string) (string, error) {
