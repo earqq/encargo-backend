@@ -69,7 +69,6 @@ type UpdateCarrier struct {
 
 type UpdateCarrierLocation struct {
 	ActualLocation *AddLocation `json:"actual_location"`
-	StoreID        *string      `json:"store_id"`
 }
 
 type UpdateOrder struct {

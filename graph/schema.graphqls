@@ -116,7 +116,6 @@ input UpdateCarrier {
 }
 input UpdateCarrierLocation {
   actual_location: AddLocation
-  store_id: String
 }
 
 input NewStore {
@@ -162,4 +161,5 @@ type Subscription {
     carrier(carrier_id: String!): Carrier!
     carrierLocation(carrier_id: String!): Carrier!
     storeCarrierLocation(store_id: String!): Carrier!
+    globalCarriersLocation: Carrier!
 }
