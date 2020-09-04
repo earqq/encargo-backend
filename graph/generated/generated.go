@@ -1015,6 +1015,7 @@ input UpdateCarrier {
 }
 input UpdateCarrierLocation {
   actual_location: AddLocation
+  store_id: String
 }
 
 input NewStore {
@@ -5628,6 +5629,14 @@ func (ec *executionContext) unmarshalInputUpdateCarrierLocation(ctx context.Cont
 
 			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("actual_location"))
 			it.ActualLocation, err = ec.unmarshalOAddLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐAddLocation(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "store_id":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("store_id"))
+			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}

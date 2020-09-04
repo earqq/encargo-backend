@@ -215,6 +215,9 @@ func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, input mode
 	r.Unlock()
 	r.Lock() //Enviando info subscripcion de ubicacion a toda la tienda
 	topicStore := r.storeCarriersLocationTopics[carrier.StoreID]
+	if input.StoreID != nil {
+		topicStore = r.storeCarriersLocationTopics[*input.StoreID]
+	}
 	if topicStore != nil {
 		for _, observer := range topicStore.Observers {
 			observer <- &carrier
