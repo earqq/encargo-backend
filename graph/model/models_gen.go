@@ -76,3 +76,8 @@ type UpdateOrder struct {
 	Score            *int    `json:"score"`
 	ScoreDescription *string `json:"score_description"`
 }
+
+type UpdateStore struct {
+	Name     *string      `json:"name"`
+	Location *AddLocation `json:"location"`
+}

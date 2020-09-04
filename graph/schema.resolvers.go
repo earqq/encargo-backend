@@ -99,6 +99,31 @@ func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore
 	return &stores, nil
 }
 
+func (r *mutationResolver) UpdateStore(ctx context.Context, input model.UpdateStore) (*model.Store, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil && userContext.UserType != "store" {
+		return &model.Store{}, errors.New("Acceso denegado")
+	}
+	var fields = bson.M{}
+	update := false
+	if input.Name != nil {
+		update = true
+		fields["name"] = input.Name
+	}
+	if input.Location != nil {
+		update = true
+		fields["location"] = input.Location
+	}
+	if !update {
+		return &model.Store{}, errors.New("No hay campos por actualizar")
+	}
+	var store model.Store
+	r.stores.Update(bson.M{"_id": userContext.ID}, bson.M{"$set": fields})
+	r.stores.Find(bson.M{"_id": userContext.ID}).One(&store)
+
+	return &store, nil
+}
+
 func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input model.UpdateCarrier) (*model.Carrier, error) {
 	userContext := auth.ForContext(ctx)
 	if userContext == nil {

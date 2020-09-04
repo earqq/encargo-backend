@@ -126,6 +126,10 @@ input NewStore {
     firebaseID: String
     location: AddLocation
 }
+input UpdateStore {
+    name: String
+    location: AddLocation
+}
 type Query {
     carrier(id: String): Carrier!
     carriers(limit:Int,search:String, global:Boolean, state_delivery: Int): [Carrier]!
@@ -140,6 +144,7 @@ type Query {
 type Mutation {
     createCarrier(input: NewCarrier!): Carrier!
     createStore(input: NewStore!): Store!
+    updateStore(input: UpdateStore!): Store!
     updateCarrier(id:String, input:UpdateCarrier!): Carrier!
     updateCarrierLocation(input: UpdateCarrierLocation!): Carrier!
     deleteCarrier(carrier_id: String): Carrier!
