@@ -1011,6 +1011,7 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+  store_id: String
 }
 input UpdateCarrierLocation {
   actual_location: AddLocation
@@ -5599,6 +5600,14 @@ func (ec *executionContext) unmarshalInputUpdateCarrier(ctx context.Context, obj
 
 			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("message_token"))
 			it.MessageToken, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "store_id":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("store_id"))
+			it.StoreID, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}

@@ -155,6 +155,7 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 		update = true
 		fields["global"] = input.Global
 	}
+
 	if input.Password != nil && *input.Password != "" {
 		update = true
 		password, _ := HashPassword(*input.Password)
@@ -171,6 +172,9 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
 	r.Lock() //Enviando info a tienda sobre carrier actualizado
 	topic := r.storeCarriersTopics[carrier.StoreID]
+	if input.StoreID != nil && carrier.Global {
+		topic = r.storeCarriersTopics[*input.StoreID]
+	}
 	if topic != nil {
 		for _, observer := range topic.Observers {
 			observer <- &carrier

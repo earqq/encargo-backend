@@ -64,6 +64,7 @@ type UpdateCarrier struct {
 	Global        *bool   `json:"global"`
 	Password      *string `json:"password"`
 	MessageToken  *string `json:"message_token"`
+	StoreID       *string `json:"store_id"`
 }
 
 type UpdateCarrierLocation struct {

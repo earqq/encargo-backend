@@ -112,6 +112,7 @@ input UpdateCarrier {
   global : Boolean
   password: String
   message_token: String
+  store_id: String
 }
 input UpdateCarrierLocation {
   actual_location: AddLocation
