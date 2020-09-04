@@ -170,21 +170,21 @@ func (r *mutationResolver) UpdateCarrier(ctx context.Context, id *string, input 
 	}
 	r.carriers.Update(bson.M{"_id": carrier.ID}, bson.M{"$set": fields})
 	r.carriers.Find(bson.M{"_id": carrier.ID}).One(&carrier)
-	r.Lock() //Enviando info a tienda sobre carrier actualizado
 	topic := r.storeCarriersTopics[carrier.StoreID]
-	if topic != nil {
+	if topic != nil && carrier.Global == false {
+		r.Lock() //Enviando info a tienda sobre carrier actualizado
 		for _, observer := range topic.Observers {
 			observer <- &carrier
 		}
+		r.Unlock()
 	}
-	r.Unlock()
-	r.Lock() //Enviando info a tienda sobre carrier actualizado
-	if carrier.Global == true && r.globalCarriersTopics != nil {
+	if r.globalCarriersTopics != nil && carrier.Global == true {
+		r.Lock() //Enviando info a tienda sobre carrier actualizado
 		for _, observer := range r.globalCarriersTopics {
 			observer <- &carrier
 		}
+		r.Unlock()
 	}
-	r.Unlock()
 
 	return &carrier, nil
 }
@@ -232,6 +232,7 @@ func (r *mutationResolver) UpdateCarrierLocation(ctx context.Context, input mode
 				observer <- &carrier
 			}
 		}
+		r.Unlock()
 	}
 	return &carrier, nil
 }
