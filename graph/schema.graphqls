@@ -30,6 +30,7 @@ type Store {
     name: String!
     username:String
     password:String
+    message_token: String
     ruc:String
     token:String
     phone: String!
@@ -122,12 +123,14 @@ input NewStore {
     phone: String!
     ruc: String
     username:String!
+    message_token: String
     password:String!
     firebaseID: String
     location: AddLocation
 }
 input UpdateStore {
     name: String
+    message_token: String
     location: AddLocation
 }
 type Query {

@@ -1,9 +1,10 @@
 package model
 
 type Carrier struct {
-	ID             string `json:"_id" bson:"_id"`
-	StoreID        string `json:"store_id" bson:"store_id"`
-	Global         bool   `json:"global" bson:"global"`
+	ID      string `json:"_id" bson:"_id"`
+	StoreID string `json:"store_id" bson:"store_id"`
+	Global  bool   `json:"global" bson:"global"`
+
 	Name           string
 	Birthdate      string
 	StateDelivery  int `json:"state_delivery" bson:"state_delivery"`

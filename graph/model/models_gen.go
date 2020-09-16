@@ -49,13 +49,14 @@ type NewOrderDetail struct {
 }
 
 type NewStore struct {
-	Name       string       `json:"name"`
-	Phone      string       `json:"phone"`
-	Ruc        *string      `json:"ruc"`
-	Username   string       `json:"username"`
-	Password   string       `json:"password"`
-	FirebaseID *string      `json:"firebaseID"`
-	Location   *AddLocation `json:"location"`
+	Name         string       `json:"name"`
+	Phone        string       `json:"phone"`
+	Ruc          *string      `json:"ruc"`
+	Username     string       `json:"username"`
+	MessageToken *string      `json:"message_token"`
+	Password     string       `json:"password"`
+	FirebaseID   *string      `json:"firebaseID"`
+	Location     *AddLocation `json:"location"`
 }
 
 type UpdateCarrier struct {
@@ -78,6 +79,7 @@ type UpdateOrder struct {
 }
 
 type UpdateStore struct {
-	Name     *string      `json:"name"`
-	Location *AddLocation `json:"location"`
+	Name         *string      `json:"name"`
+	MessageToken *string      `json:"message_token"`
+	Location     *AddLocation `json:"location"`
 }

@@ -129,15 +129,16 @@ type ComplexityRoot struct {
 	}
 
 	Store struct {
-		FirebaseID func(childComplexity int) int
-		ID         func(childComplexity int) int
-		Location   func(childComplexity int) int
-		Name       func(childComplexity int) int
-		Password   func(childComplexity int) int
-		Phone      func(childComplexity int) int
-		Ruc        func(childComplexity int) int
-		Token      func(childComplexity int) int
-		Username   func(childComplexity int) int
+		FirebaseID   func(childComplexity int) int
+		ID           func(childComplexity int) int
+		Location     func(childComplexity int) int
+		MessageToken func(childComplexity int) int
+		Name         func(childComplexity int) int
+		Password     func(childComplexity int) int
+		Phone        func(childComplexity int) int
+		Ruc          func(childComplexity int) int
+		Token        func(childComplexity int) int
+		Username     func(childComplexity int) int
 	}
 
 	Subscription struct {
@@ -706,6 +707,13 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Store.Location(childComplexity), true
 
+	case "Store.message_token":
+		if e.complexity.Store.MessageToken == nil {
+			break
+		}
+
+		return e.complexity.Store.MessageToken(childComplexity), true
+
 	case "Store.name":
 		if e.complexity.Store.Name == nil {
 			break
@@ -947,6 +955,7 @@ type Store {
     name: String!
     username:String
     password:String
+    message_token: String
     ruc:String
     token:String
     phone: String!
@@ -1039,12 +1048,14 @@ input NewStore {
     phone: String!
     ruc: String
     username:String!
+    message_token: String
     password:String!
     firebaseID: String
     location: AddLocation
 }
 input UpdateStore {
     name: String
+    message_token: String
     location: AddLocation
 }
 type Query {
@@ -3752,6 +3763,37 @@ func (ec *executionContext) _Store_password(ctx context.Context, field graphql.C
 	return ec.marshalOString2string(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Store_message_token(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Store",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.MessageToken, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(string)
+	fc.Result = res
+	return ec.marshalOString2string(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Store_ruc(ctx context.Context, field graphql.CollectedField, obj *model.Store) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -5634,6 +5676,14 @@ func (ec *executionContext) unmarshalInputNewStore(ctx context.Context, obj inte
 			if err != nil {
 				return it, err
 			}
+		case "message_token":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("message_token"))
+			it.MessageToken, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		case "password":
 			var err error
 
@@ -5791,6 +5841,14 @@ func (ec *executionContext) unmarshalInputUpdateStore(ctx context.Context, obj i
 
 			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("name"))
 			it.Name, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "message_token":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("message_token"))
+			it.MessageToken, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -6394,6 +6452,8 @@ func (ec *executionContext) _Store(ctx context.Context, sel ast.SelectionSet, ob
 			out.Values[i] = ec._Store_username(ctx, field, obj)
 		case "password":
 			out.Values[i] = ec._Store_password(ctx, field, obj)
+		case "message_token":
+			out.Values[i] = ec._Store_message_token(ctx, field, obj)
 		case "ruc":
 			out.Values[i] = ec._Store_ruc(ctx, field, obj)
 		case "token":

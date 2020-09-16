@@ -83,15 +83,16 @@ func (r *mutationResolver) CreateStore(ctx context.Context, input model.NewStore
 	var Token = auth.GenerateJWT(input.Username, "store")
 	id := bson.NewObjectId()
 	storesDB.Insert(bson.M{
-		"_id":         bson.ObjectId(id).Hex(),
-		"name":        input.Name,
-		"phone":       input.Phone,
-		"username":    input.Username,
-		"ruc":         input.Ruc,
-		"token":       Token,
-		"password":    password,
-		"firebase_id": input.FirebaseID,
-		"location":    input.Location,
+		"_id":           bson.ObjectId(id).Hex(),
+		"name":          input.Name,
+		"phone":         input.Phone,
+		"username":      input.Username,
+		"message_token": input.MessageToken,
+		"ruc":           input.Ruc,
+		"token":         Token,
+		"password":      password,
+		"firebase_id":   input.FirebaseID,
+		"location":      input.Location,
 	})
 	if err := storesDB.Find(bson.M{"username": input.Username}).One(&stores); err != nil {
 		return &model.Store{}, err
@@ -113,6 +114,10 @@ func (r *mutationResolver) UpdateStore(ctx context.Context, input model.UpdateSt
 	if input.Location != nil {
 		update = true
 		fields["location"] = input.Location
+	}
+	if input.MessageToken != nil {
+		update = true
+		fields["message_token"] = input.MessageToken
 	}
 	if !update {
 		return &model.Store{}, errors.New("No hay campos por actualizar")
