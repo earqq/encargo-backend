@@ -1048,6 +1048,7 @@ input UpgradeOrder {
     client_phone: String
     client_name: String
     arrival_location: AddLocation
+    detail: [NewOrderDetail]
 }
 input NewCarrier {
   store_id: String
@@ -6043,6 +6044,14 @@ func (ec *executionContext) unmarshalInputUpgradeOrder(ctx context.Context, obj 
 			if err != nil {
 				return it, err
 			}
+		case "detail":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("detail"))
+			it.Detail, err = ec.unmarshalONewOrderDetail2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐNewOrderDetail(ctx, v)
+			if err != nil {
+				return it, err
+			}
 		}
 	}
 
@@ -7564,6 +7573,30 @@ func (ec *executionContext) marshalOLocation2ᚖgithubᚗcomᚋearqqᚋencargo�
 		return graphql.Null
 	}
 	return ec._Location(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalONewOrderDetail2ᚕᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐNewOrderDetail(ctx context.Context, v interface{}) ([]*model.NewOrderDetail, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]*model.NewOrderDetail, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithIndex(i))
+		res[i], err = ec.unmarshalONewOrderDetail2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐNewOrderDetail(ctx, vSlice[i])
+		if err != nil {
+			return nil, graphql.WrapErrorWithInputPath(ctx, err)
+		}
+	}
+	return res, nil
 }
 
 func (ec *executionContext) unmarshalONewOrderDetail2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐNewOrderDetail(ctx context.Context, v interface{}) (*model.NewOrderDetail, error) {

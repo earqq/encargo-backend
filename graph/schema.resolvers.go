@@ -501,6 +501,11 @@ func (r *mutationResolver) UpgradeOrder(ctx context.Context, id string, input mo
 		fields["arrival_location"] = *input.ArrivalLocation
 		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
 	}
+	if input.Detail != nil {
+		update = true
+		fields["detail"] = input.Detail
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
 	if input.Score != nil {
 		update = true
 		fields["experience.score"] = *input.Score

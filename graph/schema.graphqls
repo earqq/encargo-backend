@@ -109,6 +109,7 @@ input UpgradeOrder {
     client_phone: String
     client_name: String
     arrival_location: AddLocation
+    detail: [NewOrderDetail]
 }
 input NewCarrier {
   store_id: String
