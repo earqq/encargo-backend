@@ -312,6 +312,7 @@ func (r *mutationResolver) CreateOrder(ctx context.Context, input model.NewOrder
 		"client_name":      input.ClientName,
 		"exit_location":    ExitLocation,
 		"arrival_location": input.ArrivalLocation,
+		"updated_at":       t.Format("2006-01-02T15:04:05"),
 	})
 	if err := ordersBD.Find(bson.M{"_id": bson.ObjectId(id).Hex()}).One(&order); err != nil {
 		return &model.Order{}, err
