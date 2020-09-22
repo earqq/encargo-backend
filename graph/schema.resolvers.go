@@ -525,6 +525,21 @@ func (r *mutationResolver) UpgradeOrder(ctx context.Context, id string, input mo
 	return &order, nil
 }
 
+func (r *mutationResolver) DeleteOrder(ctx context.Context, orderID *string) (*model.Order, error) {
+	userContext := auth.ForContext(ctx)
+	if userContext == nil {
+		return &model.Order{}, errors.New("Acceso denegado")
+	}
+	var order model.Order
+	if err := r.orders.Find(bson.M{"_id": orderID}).One(&order); err != nil {
+		return &model.Order{}, errors.New("No existe este pedido")
+	}
+	if err := r.orders.Remove(bson.M{"_id": orderID}); err != nil {
+		return &model.Order{}, errors.New("error al borrar pedido")
+	}
+	return &order, nil
+}
+
 func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
 	return &obj.ArrivalLocation, nil
 }

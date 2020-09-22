@@ -167,6 +167,7 @@ type Mutation {
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
     upgradeOrder(id:String!,input: UpgradeOrder!): Order!
+    deleteOrder(order_id: String): Order!
 }
 
 type Subscription {
