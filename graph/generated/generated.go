@@ -91,6 +91,7 @@ type ComplexityRoot struct {
 		UpdateCarrierLocation func(childComplexity int, input model.UpdateCarrierLocation) int
 		UpdateOrder           func(childComplexity int, id string, input model.UpdateOrder) int
 		UpdateStore           func(childComplexity int, input model.UpdateStore) int
+		UpgradeOrder          func(childComplexity int, id string, input model.UpgradeOrder) int
 	}
 
 	Order struct {
@@ -168,6 +169,7 @@ type MutationResolver interface {
 	DeleteStore(ctx context.Context) (*model.Store, error)
 	CreateOrder(ctx context.Context, input model.NewOrder) (*model.Order, error)
 	UpdateOrder(ctx context.Context, id string, input model.UpdateOrder) (*model.Order, error)
+	UpgradeOrder(ctx context.Context, id string, input model.UpgradeOrder) (*model.Order, error)
 }
 type OrderResolver interface {
 	ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error)
@@ -468,6 +470,18 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 		}
 
 		return e.complexity.Mutation.UpdateStore(childComplexity, args["input"].(model.UpdateStore)), true
+
+	case "Mutation.upgradeOrder":
+		if e.complexity.Mutation.UpgradeOrder == nil {
+			break
+		}
+
+		args, err := ec.field_Mutation_upgradeOrder_args(context.TODO(), rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.complexity.Mutation.UpgradeOrder(childComplexity, args["id"].(string), args["input"].(model.UpgradeOrder)), true
 
 	case "Order.arrival_location":
 		if e.complexity.Order.ArrivalLocation == nil {
@@ -1022,7 +1036,18 @@ input UpdateOrder {
     state:Int
     score: Int
     score_description: String
-
+}
+input UpgradeOrder {
+    score: Int
+    score_description: String
+    price: Float
+    delivery_price: Float
+    date: String
+    delivery_date: String
+    departure_date: String
+    client_phone: String
+    client_name: String
+    arrival_location: AddLocation
 }
 input NewCarrier {
   store_id: String
@@ -1079,6 +1104,7 @@ type Mutation {
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
+    upgradeOrder(id:String!,input: UpgradeOrder!): Order!
 }
 
 type Subscription {
@@ -1233,6 +1259,30 @@ func (ec *executionContext) field_Mutation_updateStore_args(ctx context.Context,
 		}
 	}
 	args["input"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_Mutation_upgradeOrder_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
+	var err error
+	args := map[string]interface{}{}
+	var arg0 string
+	if tmp, ok := rawArgs["id"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("id"))
+		arg0, err = ec.unmarshalNString2string(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["id"] = arg0
+	var arg1 model.UpgradeOrder
+	if tmp, ok := rawArgs["input"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("input"))
+		arg1, err = ec.unmarshalNUpgradeOrder2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpgradeOrder(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["input"] = arg1
 	return args, nil
 }
 
@@ -2608,6 +2658,47 @@ func (ec *executionContext) _Mutation_updateOrder(ctx context.Context, field gra
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
 		return ec.resolvers.Mutation().UpdateOrder(rctx, args["id"].(string), args["input"].(model.UpdateOrder))
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		if !graphql.HasFieldError(ctx, fc) {
+			ec.Errorf(ctx, "must not be null")
+		}
+		return graphql.Null
+	}
+	res := resTmp.(*model.Order)
+	fc.Result = res
+	return ec.marshalNOrder2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐOrder(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _Mutation_upgradeOrder(ctx context.Context, field graphql.CollectedField) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Mutation",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	rawArgs := field.ArgumentMap(ec.Variables)
+	args, err := ec.field_Mutation_upgradeOrder_args(ctx, rawArgs)
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	fc.Args = args
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Mutation().UpgradeOrder(rctx, args["id"].(string), args["input"].(model.UpgradeOrder))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -5866,6 +5957,98 @@ func (ec *executionContext) unmarshalInputUpdateStore(ctx context.Context, obj i
 	return it, nil
 }
 
+func (ec *executionContext) unmarshalInputUpgradeOrder(ctx context.Context, obj interface{}) (model.UpgradeOrder, error) {
+	var it model.UpgradeOrder
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "score":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("score"))
+			it.Score, err = ec.unmarshalOInt2ᚖint(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "score_description":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("score_description"))
+			it.ScoreDescription, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "price":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("price"))
+			it.Price, err = ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "delivery_price":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("delivery_price"))
+			it.DeliveryPrice, err = ec.unmarshalOFloat2ᚖfloat64(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "date":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("date"))
+			it.Date, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "delivery_date":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("delivery_date"))
+			it.DeliveryDate, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "departure_date":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("departure_date"))
+			it.DepartureDate, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "client_phone":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("client_phone"))
+			it.ClientPhone, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "client_name":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("client_name"))
+			it.ClientName, err = ec.unmarshalOString2ᚖstring(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "arrival_location":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("arrival_location"))
+			it.ArrivalLocation, err = ec.unmarshalOAddLocation2ᚖgithubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐAddLocation(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
 // endregion **************************** input.gotpl *****************************
 
 // region    ************************** interface.gotpl ***************************
@@ -6123,6 +6306,11 @@ func (ec *executionContext) _Mutation(ctx context.Context, sel ast.SelectionSet)
 			}
 		case "updateOrder":
 			out.Values[i] = ec._Mutation_updateOrder(ctx, field)
+			if out.Values[i] == graphql.Null {
+				invalids++
+			}
+		case "upgradeOrder":
+			out.Values[i] = ec._Mutation_upgradeOrder(ctx, field)
 			if out.Values[i] == graphql.Null {
 				invalids++
 			}
@@ -7041,6 +7229,11 @@ func (ec *executionContext) unmarshalNUpdateOrder2githubᚗcomᚋearqqᚋencargo
 
 func (ec *executionContext) unmarshalNUpdateStore2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpdateStore(ctx context.Context, v interface{}) (model.UpdateStore, error) {
 	res, err := ec.unmarshalInputUpdateStore(ctx, v)
+	return res, graphql.WrapErrorWithInputPath(ctx, err)
+}
+
+func (ec *executionContext) unmarshalNUpgradeOrder2githubᚗcomᚋearqqᚋencargoᚑbackendᚋgraphᚋmodelᚐUpgradeOrder(ctx context.Context, v interface{}) (model.UpgradeOrder, error) {
+	res, err := ec.unmarshalInputUpgradeOrder(ctx, v)
 	return res, graphql.WrapErrorWithInputPath(ctx, err)
 }
 

@@ -452,6 +452,73 @@ func (r *mutationResolver) UpdateOrder(ctx context.Context, id string, input mod
 	return &order, nil
 }
 
+func (r *mutationResolver) UpgradeOrder(ctx context.Context, id string, input model.UpgradeOrder) (*model.Order, error) {
+	var order model.Order
+	if err := r.orders.Find(bson.M{"_id": id}).One(&order); err != nil {
+		return &model.Order{}, errors.New("No existe order")
+	}
+	var fields = bson.M{}
+	loc := time.FixedZone("UTC-5", -5*60*60)
+	t := time.Now().In(loc)
+	update := false
+	if input.Price != nil {
+		update = true
+		fields["price"] = *input.Price
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.DeliveryPrice != nil {
+		update = true
+		fields["delivery_price"] = *input.DeliveryPrice
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.Date != nil {
+		update = true
+		fields["date"] = *input.Date
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.DeliveryDate != nil {
+		update = true
+		fields["delivery_date"] = *input.DeliveryDate
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.DepartureDate != nil {
+		update = true
+		fields["departure_date"] = *input.DepartureDate
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.ClientPhone != nil {
+		update = true
+		fields["client_phone"] = *input.ClientPhone
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.ClientName != nil {
+		update = true
+		fields["client_name"] = *input.ClientName
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.ArrivalLocation != nil {
+		update = true
+		fields["arrival_location"] = *input.ArrivalLocation
+		fields["updated_at"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.Score != nil {
+		update = true
+		fields["experience.score"] = *input.Score
+		fields["experience.date"] = t.Format("2006-01-02T15:04:05")
+	}
+	if input.ScoreDescription != nil {
+		update = true
+		fields["experience.description"] = *input.ScoreDescription
+	}
+	if !update {
+		return &model.Order{}, errors.New("No hay ningun campo para actualizar")
+	}
+	fields["updated_at"] = time.Now().Local()
+	r.orders.Update(bson.M{"_id": id}, bson.M{"$set": fields})
+	r.orders.Find(bson.M{"_id": id}).One(&order)
+	return &order, nil
+}
+
 func (r *orderResolver) ArrivalLocation(ctx context.Context, obj *model.Order) (*model.Location, error) {
 	return &obj.ArrivalLocation, nil
 }

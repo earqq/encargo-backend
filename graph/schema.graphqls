@@ -97,7 +97,18 @@ input UpdateOrder {
     state:Int
     score: Int
     score_description: String
-
+}
+input UpgradeOrder {
+    score: Int
+    score_description: String
+    price: Float
+    delivery_price: Float
+    date: String
+    delivery_date: String
+    departure_date: String
+    client_phone: String
+    client_name: String
+    arrival_location: AddLocation
 }
 input NewCarrier {
   store_id: String
@@ -154,6 +165,7 @@ type Mutation {
     deleteStore: Store!
     createOrder(input: NewOrder!): Order!
     updateOrder(id:String!,input: UpdateOrder!): Order!
+    upgradeOrder(id:String!,input: UpgradeOrder!): Order!
 }
 
 type Subscription {
